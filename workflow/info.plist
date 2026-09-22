@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>bundleid</key>
+  <string>com.alexkarpandrus.alfred-ttt</string>
+  <key>category</key>
+  <string>Productivity</string>
+  <key>connections</key>
+  <dict>
+    <key>6D97F029-7454-4768-9862-769941943991</key>
+    <array>
+      <dict>
+        <key>destinationuid</key>
+        <string>CDCFD668-6AA6-4384-B6F7-A867CB030539</string>
+        <key>modifiers</key>
+        <integer>0</integer>
+        <key>modifiersubtext</key>
+        <string></string>
+        <key>vitoclose</key>
+        <false/>
+      </dict>
+    </array>
+    <key>CDCFD668-6AA6-4384-B6F7-A867CB030539</key>
+    <array>
+      <dict>
+        <key>destinationuid</key>
+        <string>8A1CF64D-6A8E-44B0-BB79-7F31F3CFC304</string>
+        <key>modifiers</key>
+        <integer>0</integer>
+        <key>modifiersubtext</key>
+        <string></string>
+        <key>vitoclose</key>
+        <false/>
+      </dict>
+    </array>
+    <key>8A1CF64D-6A8E-44B0-BB79-7F31F3CFC304</key>
+    <array>
+      <dict>
+        <key>destinationuid</key>
+        <string>E7F3B5A1-A2B3-4D4E-9A70-57A1F919C2D4</string>
+        <key>modifiers</key>
+        <integer>0</integer>
+        <key>modifiersubtext</key>
+        <string></string>
+        <key>sourceoutputuid</key>
+        <string>C184A905-52B5-4483-A18C-78A26B56B8DB</string>
+        <key>vitoclose</key>
+        <false/>
+      </dict>
+      <dict>
+        <key>destinationuid</key>
+        <string>D4A8B070-F52D-47B0-8978-EE22BD4FF3F2</string>
+        <key>modifiers</key>
+        <integer>0</integer>
+        <key>modifiersubtext</key>
+        <string></string>
+        <key>vitoclose</key>
+        <false/>
+      </dict>
+    </array>
+  </dict>
+  <key>createdby</key>
+  <string>alexkarpandrus</string>
+  <key>description</key>
+  <string>Capture, browse, summarize, and update tasks through tickettrain.</string>
+  <key>name</key>
+  <string>Track Work with ttt</string>
+  <key>objects</key>
+  <array>
+    <dict>
+      <key>config</key>
+      <dict>
+        <key>alfredfiltersresults</key>
+        <false/>
+        <key>alfredfiltersresultsmatchmode</key>
+        <integer>0</integer>
+        <key>argumenttreatemptyqueryasnil</key>
+        <false/>
+        <key>argumenttrimmode</key>
+        <integer>0</integer>
+        <key>argumenttype</key>
+        <integer>1</integer>
+        <key>escaping</key>
+        <integer>102</integer>
+        <key>keyword</key>
+        <string>ttt</string>
+        <key>queuedelaycustom</key>
+        <real>0.35</real>
+        <key>queuedelayimmediatelyinitially</key>
+        <false/>
+        <key>queuedelaymode</key>
+        <integer>1</integer>
+        <key>queuemode</key>
+        <integer>1</integer>
+        <key>runningsubtext</key>
+        <string>Searching tracked work…</string>
+        <key>script</key>
+        <string>./bin/filter "{query}"</string>
+        <key>scriptargtype</key>
+        <integer>0</integer>
+        <key>scriptfile</key>
+        <string></string>
+        <key>subtext</key>
+        <string>Shortcuts: s · l · l o/a/w/d/c</string>
+        <key>title</key>
+        <string>Track work</string>
+        <key>type</key>
+        <integer>0</integer>
+        <key>withspace</key>
+        <true/>
+      </dict>
+      <key>type</key>
+      <string>alfred.workflow.input.scriptfilter</string>
+      <key>uid</key>
+      <string>6D97F029-7454-4768-9862-769941943991</string>
+      <key>version</key>
+      <integer>3</integer>
+    </dict>
+    <dict>
+      <key>config</key>
+      <dict>
+        <key>concurrently</key>
+        <false/>
+        <key>escaping</key>
+        <integer>102</integer>
+        <key>script</key>
+        <string>./bin/apply "{query}"</string>
+        <key>scriptargtype</key>
+        <integer>0</integer>
+        <key>scriptfile</key>
+        <string></string>
+        <key>type</key>
+        <integer>0</integer>
+      </dict>
+      <key>type</key>
+      <string>alfred.workflow.action.script</string>
+      <key>uid</key>
+      <string>CDCFD668-6AA6-4384-B6F7-A867CB030539</string>
+      <key>version</key>
+      <integer>2</integer>
+    </dict>
+    <dict>
+      <key>config</key>
+      <dict>
+        <key>lastpathcomponent</key>
+        <false/>
+        <key>onlyshowifquerypopulated</key>
+        <true/>
+        <key>removeextension</key>
+        <false/>
+        <key>text</key>
+        <string>{query}</string>
+        <key>title</key>
+        <string>Work tracked</string>
+      </dict>
+      <key>type</key>
+      <string>alfred.workflow.output.notification</string>
+      <key>uid</key>
+      <string>D4A8B070-F52D-47B0-8978-EE22BD4FF3F2</string>
+      <key>version</key>
+      <integer>1</integer>
+    </dict>
+    <dict>
+      <key>config</key>
+      <dict>
+        <key>conditions</key>
+        <array>
+          <dict>
+            <key>inputstring</key>
+            <string>{query}</string>
+            <key>matchcasesensitive</key>
+            <true/>
+            <key>matchmode</key>
+            <integer>0</integer>
+            <key>matchstring</key>
+            <string>__TTT_SUMMARY__</string>
+            <key>outputlabel</key>
+            <string>Live task dashboard</string>
+            <key>uid</key>
+            <string>C184A905-52B5-4483-A18C-78A26B56B8DB</string>
+          </dict>
+        </array>
+        <key>elselabel</key>
+        <string>Tracked work</string>
+        <key>hideelse</key>
+        <false/>
+      </dict>
+      <key>type</key>
+      <string>alfred.workflow.utility.conditional</string>
+      <key>uid</key>
+      <string>8A1CF64D-6A8E-44B0-BB79-7F31F3CFC304</string>
+      <key>version</key>
+      <integer>1</integer>
+    </dict>
+    <dict>
+      <key>config</key>
+      <dict>
+        <key>behaviour</key>
+        <integer>2</integer>
+        <key>outputmode</key>
+        <integer>1</integer>
+        <key>inputfile</key>
+        <string>bin/summary</string>
+        <key>fontmode</key>
+        <integer>0</integer>
+        <key>loadingtext</key>
+        <string>Loading live tasks…</string>
+        <key>spellchecking</key>
+        <integer>0</integer>
+        <key>footertext</key>
+        <string>Esc to close · Use ttt l to update</string>
+        <key>stackview</key>
+        <false/>
+        <key>inputtype</key>
+        <integer>1</integer>
+        <key>fontsizing</key>
+        <integer>0</integer>
+        <key>scriptinput</key>
+        <integer>0</integer>
+      </dict>
+      <key>type</key>
+      <string>alfred.workflow.userinterface.text</string>
+      <key>uid</key>
+      <string>E7F3B5A1-A2B3-4D4E-9A70-57A1F919C2D4</string>
+      <key>version</key>
+      <integer>1</integer>
+    </dict>
+  </array>
+  <key>readme</key>
+  <string>Type `ttt` followed by a task or update. Use `ttt s` for the live dashboard, `ttt l` to browse, and `ttt l o/a/w/d/c` to filter by state. Pressing Return on a mutation approves the exact ttt request shown by Alfred.</string>
+  <key>uidata</key>
+  <dict>
+    <key>6D97F029-7454-4768-9862-769941943991</key>
+    <dict><key>xpos</key><real>40</real><key>ypos</key><real>40</real></dict>
+    <key>CDCFD668-6AA6-4384-B6F7-A867CB030539</key>
+    <dict><key>xpos</key><real>300</real><key>ypos</key><real>40</real></dict>
+    <key>D4A8B070-F52D-47B0-8978-EE22BD4FF3F2</key>
+    <dict><key>xpos</key><real>820</real><key>ypos</key><real>40</real></dict>
+    <key>8A1CF64D-6A8E-44B0-BB79-7F31F3CFC304</key>
+    <dict><key>xpos</key><real>560</real><key>ypos</key><real>40</real></dict>
+    <key>E7F3B5A1-A2B3-4D4E-9A70-57A1F919C2D4</key>
+    <dict><key>xpos</key><real>820</real><key>ypos</key><real>180</real></dict>
+  </dict>
+  <key>userconfigurationconfig</key>
+  <array>
+    <dict>
+      <key>config</key>
+      <dict><key>default</key><string>own</string><key>placeholder</key><string>own</string><key>required</key><true/><key>trim</key><true/></dict>
+      <key>description</key><string>Named ttt profile used for search and mutation.</string>
+      <key>label</key><string>ttt profile</string>
+      <key>type</key><string>textfield</string>
+      <key>variable</key><string>TTT_PROFILE</string>
+    </dict>
+    <dict>
+      <key>config</key>
+      <dict><key>default</key><string>ttt</string><key>placeholder</key><string>ttt</string><key>required</key><true/><key>trim</key><true/></dict>
+      <key>description</key><string>Command name or absolute path for tickettrain.</string>
+      <key>label</key><string>ttt command</string>
+      <key>type</key><string>textfield</string>
+      <key>variable</key><string>TTT_BIN</string>
+    </dict>
+    <dict>
+      <key>config</key>
+      <dict><key>default</key><false/><key>required</key><false/><key>text</key><string>Use Jev semantic ranking</string></dict>
+      <key>description</key><string>Sends your text and candidate excerpts to TypeSafe AI through ttt.</string>
+      <key>label</key><string>Semantic matching</string>
+      <key>type</key><string>checkbox</string>
+      <key>variable</key><string>TTT_SEMANTIC</string>
+    </dict>
+    <dict>
+      <key>config</key>
+      <dict><key>default</key><true/><key>required</key><false/><key>text</key><string>Infer task titles and state with Apple Intelligence</string></dict>
+      <key>description</key><string>Runs only on your Mac. Comments remain unchanged; inferred state is shown before approval.</string>
+      <key>label</key><string>Task intent</string>
+      <key>type</key><string>checkbox</string>
+      <key>variable</key><string>TTT_REPHRASE</string>
+    </dict>
+  </array>
+  <key>variablesdontexport</key>
+  <array/>
+  <key>version</key>
+  <string>0.4.3</string>
+  <key>webaddress</key>
+  <string>https://github.com/alexkarpandrus/alfred-ttt</string>
+</dict>
+</plist>

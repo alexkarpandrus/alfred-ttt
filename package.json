@@ -1,0 +1,13 @@
+{
+  "name": "alfred-ttt",
+  "version": "0.4.3",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "./scripts/build.sh",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

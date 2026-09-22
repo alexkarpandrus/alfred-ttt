@@ -1,0 +1,6 @@
+#!/bin/zsh
+set -u
+
+export PATH="${HOME}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+SCRIPT_DIR="${0:A:h}"
+exec /usr/bin/env node "${SCRIPT_DIR}/../src/filter.mjs" "${1:-}"
