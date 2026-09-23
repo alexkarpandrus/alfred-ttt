@@ -29,6 +29,17 @@ test("labelChanges removes a fulfilled promise", () => {
   });
 });
 
+
+test("labelChanges accepts inferred taxonomy but rejects lifecycle labels", () => {
+  assert.deepEqual(
+    labelChanges("security work is blocked", ["security", "blocked", "waiting"]),
+    {
+      addLabels: ["security"],
+      removeLabels: [],
+    },
+  );
+});
+
 test("parseCommand recognizes task listing and targeted free-form updates", () => {
   assert.deepEqual(parseCommand("list waiting"), {
     mode: "list",
@@ -99,7 +110,27 @@ test("buildItems preserves the comment and applies an inferred state", () => {
   });
 });
 
-test("buildItems offers matching updates and standalone creation", () => {
+
+test("buildItems applies inferred priority and due date", () => {
+  const [result] = buildItems("Ask M about B low prio tomorrow", {
+    intent: {
+      title: "Ask M about B",
+      priority: "low",
+      dueAt: "2026-09-24T07:00:00.000Z",
+    },
+  });
+
+  assert.deepEqual(decodeRequest(result.arg), {
+    action: "create_item",
+    title: "Ask M about B",
+    description: "Ask M about B low prio tomorrow",
+    priority: "low",
+    dueAt: "2026-09-24T07:00:00.000Z",
+  });
+  assert.match(result.subtitle, /priority → low · due → 2026-09-24/);
+});
+
+test("buildItems puts standalone creation before matching updates", () => {
   const results = buildItems("I promised Jade a status update", {
     items: [{ displayId: "abc123", title: "Ask Jade for a status update" }],
     projects: [{ displayId: "Project X", title: "Project X" }],
@@ -108,24 +139,24 @@ test("buildItems offers matching updates and standalone creation", () => {
 
   assert.equal(results.length, 3);
   assert.deepEqual(decodeRequest(results[0].arg), {
-    action: "update_item",
-    item: "abc123",
-    comment: "I promised Jade a status update",
-    state: "waiting",
-    addLabels: ["promised", "follow-up"],
-  });
-  assert.deepEqual(decodeRequest(results[1].arg), {
     action: "create_item",
     title: "I promised Jade a status update",
     labels: ["promised", "follow-up"],
     state: "waiting",
   });
-  assert.deepEqual(decodeRequest(results[2].arg), {
+  assert.deepEqual(decodeRequest(results[1].arg), {
     action: "create_item",
     title: "I promised Jade a status update",
     project: "Project X",
     labels: ["promised", "follow-up"],
     state: "waiting",
+  });
+  assert.deepEqual(decodeRequest(results[2].arg), {
+    action: "update_item",
+    item: "abc123",
+    comment: "I promised Jade a status update",
+    state: "waiting",
+    addLabels: ["promised", "follow-up"],
   });
 });
 
@@ -145,5 +176,25 @@ test("buildItems preserves a raw note when it offers an inferred title", () => {
     action: "create_item",
     title: "need ask Jade for a status update",
     labels: ["follow-up"],
+  });
+});
+
+
+test("buildItems prefers the inferred existing project and labels", () => {
+  const results = buildItems("prepare release notes", {
+    projects: [{ displayId: "Anaconda" }],
+    intent: {
+      title: "Prepare release notes",
+      project: "Anaconda",
+      labels: ["release"],
+    },
+  });
+
+  assert.deepEqual(decodeRequest(results[0].arg), {
+    action: "create_item",
+    title: "Prepare release notes",
+    description: "prepare release notes",
+    project: "Anaconda",
+    labels: ["release"],
   });
 });

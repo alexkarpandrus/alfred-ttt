@@ -9,6 +9,9 @@ const REQUIRED_CAPABILITIES = [
   "create-items",
   "update-items",
   "list-items",
+  "search-items",
+  "search-projects",
+  "search-labels",
   "item-lifecycle",
 ];
 

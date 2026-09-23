@@ -17,7 +17,11 @@ function hasBlockers(item) {
 }
 
 function dueDate(item) {
-  return item.dueAt ? String(item.dueAt).slice(0, 10) : "—";
+  if (!item.dueAt) return "—";
+  const date = new Date(item.dueAt);
+  if (Number.isNaN(date.valueOf())) return String(item.dueAt).slice(0, 10);
+  const pad = (part) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 function isOverdue(item, now) {

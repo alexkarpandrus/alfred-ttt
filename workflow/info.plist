@@ -270,8 +270,8 @@
     </dict>
     <dict>
       <key>config</key>
-      <dict><key>default</key><true/><key>required</key><false/><key>text</key><string>Infer task titles and state with Apple Intelligence</string></dict>
-      <key>description</key><string>Runs only on your Mac. Comments remain unchanged; inferred state is shown before approval.</string>
+      <dict><key>default</key><true/><key>required</key><false/><key>text</key><string>Infer task context with Apple Intelligence</string></dict>
+      <key>description</key><string>Uses matching tasks locally to infer titles, existing projects, labels, and explicit state changes. Comments remain unchanged.</string>
       <key>label</key><string>Task intent</string>
       <key>type</key><string>checkbox</string>
       <key>variable</key><string>TTT_REPHRASE</string>
@@ -280,7 +280,7 @@
   <key>variablesdontexport</key>
   <array/>
   <key>version</key>
-  <string>0.4.3</string>
+  <string>0.5.1</string>
   <key>webaddress</key>
   <string>https://github.com/alexkarpandrus/alfred-ttt</string>
 </dict>

@@ -24,7 +24,7 @@ const requestIndex = args.indexOf("--request-file");
 const request = requestIndex < 0 ? null : JSON.parse(readFileSync(args[requestIndex + 1], "utf8"));
 appendFileSync(process.env.TTT_FAKE_LOG, JSON.stringify({ args, request }) + "\\n");
 let data;
-if (args[0] === "version") data = { capabilities: ["create-items", "update-items", "list-items", "item-lifecycle"] };
+if (args[0] === "version") data = { capabilities: ["create-items", "update-items", "list-items", "search-items", "search-projects", "search-labels", "item-lifecycle"] };
 else if (args[0] === "list") data = { items: [{ displayId: "abc123", title: "Ask Jade", state: "open" }] };
 else if (args[0] === "search") data = { candidates: [{ displayId: "abc123", title: "Ask Jade" }] };
 else if (args[0] === "preview") data = { proposalId: "lp2_test" };

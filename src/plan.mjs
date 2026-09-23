@@ -38,6 +38,7 @@ const LIST_STATES = new Set([
   "completed",
   "canceled",
 ]);
+const RESERVED_LABELS = new Set([...LIST_STATES, "blocked"]);
 
 export function parseCommand(input) {
   const text = input.trim();
@@ -67,14 +68,20 @@ export function listState(query) {
   return aliases[state] || (LIST_STATES.has(state) ? state : undefined);
 }
 
-export function labelChanges(text) {
+export function labelChanges(text, inferredLabels = []) {
   const removeLabels = LABEL_RULES.filter(({ remove }) =>
     remove?.test(text),
   ).map(({ label }) => label);
-  const removed = new Set(removeLabels);
-  const addLabels = LABEL_RULES.filter(
-    ({ add, label }) => add.test(text) && !removed.has(label),
+  const removed = new Set(removeLabels.map((label) => label.toLocaleLowerCase()));
+  const ruleLabels = LABEL_RULES.filter(
+    ({ add, label }) => add.test(text) && !removed.has(label.toLocaleLowerCase()),
   ).map(({ label }) => label);
+  const addLabels = [...new Set([...ruleLabels, ...inferredLabels])].filter(
+    (label) => {
+      const normalized = label.toLocaleLowerCase();
+      return !removed.has(normalized) && !RESERVED_LABELS.has(normalized);
+    },
+  );
   return { addLabels, removeLabels };
 }
 
@@ -111,6 +118,13 @@ function hasValue(value) {
   return true;
 }
 
+function localDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) return String(value).slice(0, 10);
+  const pad = (part) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 function requestArg(request) {
   return encodeRequest(
     Object.fromEntries(
@@ -129,9 +143,11 @@ export function buildSummaryItem() {
   ];
 }
 
-function mutationSummary({ addLabels, removeLabels }, state) {
+function mutationSummary({ addLabels, removeLabels }, intent) {
   const parts = [];
-  if (state) parts.push(`state → ${state}`);
+  if (intent.state) parts.push(`state → ${intent.state}`);
+  if (intent.priority) parts.push(`priority → ${intent.priority}`);
+  if (intent.dueAt) parts.push(`due → ${localDate(intent.dueAt)}`);
   if (addLabels.length) parts.push(`add ${addLabels.join(", ")}`);
   if (removeLabels.length) parts.push(`remove ${removeLabels.join(", ")}`);
   return parts.length ? parts.join(" · ") : "comment only";
@@ -141,12 +157,14 @@ function updateItem(input, candidate, changes, intent) {
   const target = candidate.displayId;
   return {
     title: `Update “${candidate.title || target}”`,
-    subtitle: `${target} · ${mutationSummary(changes, intent.state)} · Return to apply`,
+    subtitle: `${target} · ${mutationSummary(changes, intent)} · Return to apply`,
     arg: requestArg({
       action: "update_item",
       item: target,
       comment: input,
       state: intent.state,
+      priority: intent.priority,
+      dueAt: intent.dueAt,
       addLabels: changes.addLabels,
       removeLabels: changes.removeLabels,
     }),
@@ -159,7 +177,7 @@ function createItem(rawNote, title, project, changes, intent) {
   const rephrased = title !== rawNote;
   return {
     title: `Create task${location}: ${title}`,
-    subtitle: `${rephrased ? "rephrased · " : "as written · "}${mutationSummary(changes, intent.state)} · Return to create`,
+    subtitle: `${rephrased ? "rephrased · " : "as written · "}${mutationSummary(changes, intent)} · Return to create`,
     arg: requestArg({
       action: "create_item",
       title,
@@ -167,6 +185,8 @@ function createItem(rawNote, title, project, changes, intent) {
       project: projectName,
       labels: changes.addLabels,
       state: intent.state,
+      priority: intent.priority,
+      dueAt: intent.dueAt,
     }),
   };
 }
@@ -218,7 +238,7 @@ export function buildListItems(items, query = "") {
         : undefined,
       entityName(item.project),
       labels.length ? labels.map((label) => `+${label}`).join(" ") : undefined,
-      item.dueAt ? `due ${String(item.dueAt).slice(0, 10)}` : undefined,
+      item.dueAt ? `due ${localDate(item.dueAt)}` : undefined,
       item.displayId,
       "Tab to update",
     ].filter(Boolean);
@@ -259,7 +279,7 @@ export function buildItems(
     ];
   }
 
-  const changes = labelChanges(text);
+  const changes = labelChanges(text, intent.labels);
   const title = intent.title?.trim() || text;
   const updates = items
     .slice(0, 5)
@@ -269,14 +289,22 @@ export function buildItems(
       ? updates
       : buildUpdatePrompt(undefined, target || "selected task");
 
+  const inferredProject = projects.find(
+    (project) =>
+      entityName(project)?.toLocaleLowerCase() === intent.project?.toLocaleLowerCase(),
+  );
+  const otherProjects = projects.filter((project) => project !== inferredProject);
   const creates = [
-    createItem(text, title, undefined, changes, intent),
+    createItem(text, title, inferredProject, changes, intent),
     ...(title === text
       ? []
-      : [createItem(text, text, undefined, changes, intent)]),
-    ...projects
-      .slice(0, 2)
+      : [createItem(text, text, inferredProject, changes, intent)]),
+    ...(inferredProject
+      ? [createItem(text, title, undefined, changes, intent)]
+      : []),
+    ...otherProjects
+      .slice(0, inferredProject ? 1 : 2)
       .map((project) => createItem(text, title, project, changes, intent)),
   ];
-  return [...updates, ...creates];
+  return [...creates, ...updates];
 }

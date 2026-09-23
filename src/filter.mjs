@@ -9,17 +9,21 @@ import {
   parseCommand,
   searchQuery,
 } from "./plan.mjs";
-import { inferWork } from "./rephrase.mjs";
+import { buildInferenceContext, inferWork } from "./rephrase.mjs";
 import { listItems, requireStandaloneActions, search } from "./ttt.mjs";
 
-function uniqueCandidates(groups) {
+function uniqueEntities(entities) {
   const seen = new Set();
-  return groups.flat().filter((candidate) => {
-    const key = candidate.displayId;
+  return entities.filter((entity) => {
+    const key = entity?.displayId || entity?.title;
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
   });
+}
+
+function uniqueCandidates(groups) {
+  return uniqueEntities(groups.flat());
 }
 
 function output(items) {
@@ -64,18 +68,31 @@ async function main() {
   if (!target && focused.toLowerCase() !== text.toLowerCase())
     searches.push(search("item", focused, { limit: 5 }));
 
-  const [itemGroups, projects, intent] = await Promise.all([
+  const [itemGroups, projects, labels] = await Promise.all([
     Promise.all(searches),
     target
       ? Promise.resolve([])
       : search("project", focused, { semantic, limit: 2 }),
-    inferWork(text, { enabled: process.env.TTT_REPHRASE !== "0" }),
+    search("label", focused, { semantic, limit: 8 }),
   ]);
+  const items = uniqueCandidates(itemGroups);
+  const availableProjects = uniqueEntities([
+    ...projects,
+    ...items.map((item) => item.project).filter(Boolean),
+  ]);
+  const availableLabels = uniqueEntities([
+    ...labels,
+    ...items.flatMap((item) => item.labels || []),
+  ]);
+  const intent = await inferWork(text, {
+    enabled: process.env.TTT_REPHRASE !== "0",
+    context: buildInferenceContext(items, availableProjects, availableLabels),
+  });
 
   output(
     buildItems(text, {
-      items: uniqueCandidates(itemGroups),
-      projects,
+      items,
+      projects: availableProjects,
       intent,
       allowCreate: !target,
       target,
