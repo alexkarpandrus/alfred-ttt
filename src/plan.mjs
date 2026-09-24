@@ -289,6 +289,12 @@ export function buildItems(
       },
     ];
   }
+  if (allowCreate && !target && !/\s/.test(text)) {
+    const titleMatches = items.filter((item) =>
+      item.title?.toLocaleLowerCase().includes(text.toLocaleLowerCase()),
+    );
+    if (titleMatches.length) return buildListItems(titleMatches, text);
+  }
 
   const changes = labelChanges(text, intent.labels);
   const title = intent.title?.trim() || text;

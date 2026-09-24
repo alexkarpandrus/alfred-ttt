@@ -93,6 +93,21 @@ test("buildListItems displays task state and prepares a targeted update", () => 
   assert.equal(results[0].valid, false);
 });
 
+test("a matching task-name fragment browses existing work without a create action", () => {
+  const existing = { displayId: "de34c681", title: "Add Wojtech to CODEOWNERS", state: "open" };
+  const unrelated = { displayId: "other123", title: "Review patrol", description: "Ask Wojtech" };
+  const items = [existing, unrelated];
+  for (const query of ["woj", "WOJTECH"]) {
+    const results = buildItems(query, { items, intent: { title: existing.title } });
+    assert.deepEqual(results.map((result) => result.title), [existing.title]);
+    assert.equal(results[0].autocomplete, "de34c681: ");
+    assert.equal(results[0].valid, false);
+    assert.equal(results[0].arg, undefined);
+  }
+  assert.equal(buildItems("unknown", { items })[0].title, "🆕 Create: unknown");
+  assert.equal(buildItems("add w to codeowners", { items })[0].title, "🆕 Create: add w to codeowners");
+});
+
 test("buildItems preserves the comment and applies an inferred state", () => {
   const results = buildItems("finished the CODEOWNERS update", {
     items: [{ displayId: "de34c681", title: "Add Wojtech to CODEOWNERS" }],
