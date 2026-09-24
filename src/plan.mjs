@@ -293,7 +293,7 @@ export function buildItems(
     const titleMatches = items.filter((item) =>
       item.title?.toLocaleLowerCase().includes(text.toLocaleLowerCase()),
     );
-    if (titleMatches.length) return buildListItems(titleMatches, text);
+    if (titleMatches.length) return buildListItems(titleMatches);
   }
 
   const changes = labelChanges(text, intent.labels);

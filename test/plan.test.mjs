@@ -108,6 +108,19 @@ test("a matching task-name fragment browses existing work without a create actio
   assert.equal(buildItems("add w to codeowners", { items })[0].title, "🆕 Create: add w to codeowners");
 });
 
+test("a state-name fragment still browses a title match in another state", () => {
+  for (const [query, task] of [
+    ["w", { displayId: "de34c681", title: "Add Wojtech to CODEOWNERS", state: "open" }],
+    ["open", { displayId: "other123", title: "Open release notes", state: "waiting" }],
+  ]) {
+    const [result] = buildItems(query, { items: [task] });
+    assert.equal(result.title, task.title);
+    assert.equal(result.autocomplete, `${task.displayId}: `);
+    assert.equal(result.valid, false);
+    assert.equal(result.arg, undefined);
+  }
+});
+
 test("buildItems preserves the comment and applies an inferred state", () => {
   const results = buildItems("finished the CODEOWNERS update", {
     items: [{ displayId: "de34c681", title: "Add Wojtech to CODEOWNERS" }],
