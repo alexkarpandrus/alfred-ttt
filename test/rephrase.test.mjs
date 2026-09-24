@@ -220,6 +220,9 @@ test("parseIntent does not use past work from a different clause", () => {
     ["I added the report to CODEOWNERS and can add w to CODEOWNERS", "I added the report to CODEOWNERS"],
     ["I added the report to CODEOWNERS and I can add w to CODEOWNERS", "I added the report to CODEOWNERS"],
     ["I added the report to CODEOWNERS and you can add w to CODEOWNERS", "I added the report to CODEOWNERS"],
+    ["I added the report to CODEOWNERS and I'll add w to CODEOWNERS", "I added the report to CODEOWNERS"],
+    ["I added the report to CODEOWNERS and I’ll add w to CODEOWNERS", "I added the report to CODEOWNERS"],
+    ["I added the report to CODEOWNERS and I won't add w to CODEOWNERS", "I added the report to CODEOWNERS"],
   ]) {
     assert.deepEqual(
       parseIntent(

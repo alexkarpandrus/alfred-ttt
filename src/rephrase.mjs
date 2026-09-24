@@ -40,8 +40,9 @@ function reportsPastWork(note, phrase, title) {
   const [subject, ...context] = details.filter((word) => !TASK_STOPWORDS.has(word));
   const pastAction = IRREGULAR_PAST.get(action) ||
     `${action}${action.endsWith("e") ? "d" : "ed"}`;
+  // Split coordinated actions and requests, not nouns such as “research and development”.
   const clauses = note.split(new RegExp(
-    `[,;.!?]|\\bbut\\b|\\band\\s+(?=(?:[a-z]+\\s+)?(?:${PAST_VERB}|${action}|${REQUEST_WORD})\\b)`,
+    `[,;.!?]|\\bbut\\b|\\band\\s+(?=(?:[a-z]+\\s+)?(?:[a-z]+['’](?:ll|d|t)\\s+|(?:${PAST_VERB}|${action}|${REQUEST_WORD})\\b))`,
     "i",
   ));
   const phraseClause = clauses.find((clause) => sourcedPhrase(clause, phrase));

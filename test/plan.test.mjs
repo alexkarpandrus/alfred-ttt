@@ -110,23 +110,25 @@ test("buildItems preserves the comment and applies an inferred state", () => {
   });
 });
 
-test("suggestion titles show the action before the task name", () => {
+test("suggestion titles show a compact action before the task name", () => {
   const task = { displayId: "de34c681", title: "Add Wojtech to CODEOWNERS" };
   for (const [intent, action] of [
-    [{}, "Comment on task"],
-    [{ state: "completed" }, "Complete task"],
-    [{ state: "canceled" }, "Cancel task"],
-    [{ state: "waiting" }, "Mark task waiting"],
-    [{ priority: "high" }, "Update task"],
+    [{}, "💬 Comment"],
+    [{ state: "completed" }, "✅ Complete"],
+    [{ state: "canceled" }, "🚫 Cancel"],
+    [{ state: "waiting" }, "⏳ Waiting"],
+    [{ state: "active" }, "▶️ Active"],
+    [{ state: "open" }, "🔓 Open"],
+    [{ priority: "high" }, "✏️ Update"],
   ]) {
     const [result] = buildItems("a note", { items: [task], intent, allowCreate: false });
     assert.equal(result.title, `${action}: ${task.title}`);
     assert.equal(decodeRequest(result.arg).item, task.displayId);
   }
-  assert.equal(buildItems("a note")[0].title, "Create new task: a note");
+  assert.equal(buildItems("a note")[0].title, "🆕 Create: a note");
   assert.equal(
     buildItems("finished work", { intent: { state: "completed" } })[0].title,
-    "Create completed task: finished work",
+    "🆕 Create (completed): finished work",
   );
 });
 
@@ -199,9 +201,9 @@ test("buildItems prioritizes one task-relative completion", () => {
     comment: "added w to codeowners",
     state: "completed",
   });
-  assert.equal(results[0].title, "Complete task: Add Wojtech to CODEOWNERS");
-  assert.equal(results[1].title, "Create new task: Add Wojtech to CODEOWNERS");
-  assert.equal(results.at(-1).title, "Comment on task: Review CODEOWNERS policy");
+  assert.equal(results[0].title, "✅ Complete: Add Wojtech to CODEOWNERS");
+  assert.equal(results[1].title, "🆕 Create: Add Wojtech to CODEOWNERS");
+  assert.equal(results.at(-1).title, "💬 Comment: Review CODEOWNERS policy");
   assert.equal(decodeRequest(results[1].arg).action, "create_item");
   assert.equal(decodeRequest(results[1].arg).state, undefined);
   assert.deepEqual(decodeRequest(results.at(-1).arg), {
@@ -266,7 +268,7 @@ test("buildItems preserves a raw note when it offers an inferred title", () => {
     description: "need ask Jade for a status update",
     labels: ["follow-up"],
   });
-  assert.equal(results[0].title, "Create new task: Ask Jade for a status update");
+  assert.equal(results[0].title, "🆕 Create: Ask Jade for a status update");
   assert.match(results[0].subtitle, /rephrased · original note saved/);
   assert.doesNotMatch(results[0].subtitle, /comment only/);
   assert.deepEqual(decodeRequest(results[1].arg), {
