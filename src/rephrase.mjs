@@ -24,7 +24,8 @@ const PAST_REPORT = new RegExp(
   `^(?:(?:yesterday|today|i|we|they|he|she|it|just|already|finally|[a-z]+ly)\\s+)*${PAST_VERB}\\b|\\b(?:was|were|have|has|had|(?:i|we|they)['’]ve|(?:he|she|it)['’]s)\\s+(?:(?:been|just|already|finally|[a-z]+ly)\\s+)*${PAST_VERB}\\b`,
   "i",
 );
-const REQUEST_OR_NEGATION = /\b(?:not|never|should|could|would|will|must|might|may|need(?:s|ed)?|want(?:s|ed)?|plan(?:s|ned)?|please)\b/i;
+const REQUEST_WORD = "(?:not|never|can|should|could|would|will|must|might|may|need(?:s|ed)?|want(?:s|ed)?|plan(?:s|ned)?|please)";
+const REQUEST_OR_NEGATION = new RegExp(`\\b${REQUEST_WORD}\\b`, "i");
 const TASK_STOPWORDS = new Set(["a", "an", "the", "to", "in", "on", "for", "of", "with", "from", "about", "by", "at", "and"]);
 const IRREGULAR_PAST = new Map([
   ["send", "sent"], ["write", "wrote"], ["make", "made"], ["run", "ran"],
@@ -40,7 +41,7 @@ function reportsPastWork(note, phrase, title) {
   const pastAction = IRREGULAR_PAST.get(action) ||
     `${action}${action.endsWith("e") ? "d" : "ed"}`;
   const clauses = note.split(new RegExp(
-    `[,;.!?]|\\bbut\\b|\\band\\s+(?=(?:(?:i|we|he|she|they)\\s+)?(?:${PAST_VERB}|${action}|need|want|should|must|please)\\b)`,
+    `[,;.!?]|\\bbut\\b|\\band\\s+(?=(?:[a-z]+\\s+)?(?:${PAST_VERB}|${action}|${REQUEST_WORD})\\b)`,
     "i",
   ));
   const phraseClause = clauses.find((clause) => sourcedPhrase(clause, phrase));
