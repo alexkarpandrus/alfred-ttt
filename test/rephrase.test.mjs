@@ -152,6 +152,9 @@ test("parseIntent accepts other reported past work", () => {
 test("parseIntent accepts a direct passive completion report", () => {
   for (const [input, title] of [
     ["The report was sent", "Send report"],
+    ["The report has been sent", "Send report"],
+    ["The report had been sent", "Send report"],
+    ["Reports have been sent", "Send reports"],
     ["W was added to codeowners", "Add Wojtech to codeowners"],
   ]) {
     assert.deepEqual(
@@ -164,6 +167,23 @@ test("parseIntent accepts a direct passive completion report", () => {
       input,
     );
   }
+});
+
+test("parseIntent selects only the named recipient", () => {
+  const input = "I sent release notes to Bob";
+  assert.deepEqual(
+    parseIntent(
+      JSON.stringify({
+        state: "completed", statePhrase: input, completedTaskIds: ["alice", "bob"],
+      }),
+      input,
+      { tasks: [
+        { id: "alice", title: "Send release notes to Alice", state: "open" },
+        { id: "bob", title: "Send release notes to Bob", state: "open" },
+      ] },
+    ),
+    { state: "completed", taskRelativeCompletion: true, completedTaskIds: ["bob"] },
+  );
 });
 
 test("parseIntent keeps completed work separate from a dated follow-up", () => {

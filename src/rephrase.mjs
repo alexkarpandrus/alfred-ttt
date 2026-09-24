@@ -38,6 +38,8 @@ function reportsPastWork(note, phrase, title) {
   if (!sourcedPhrase(note, phrase)) return false;
   const [action, ...details] = normalized(title).split(" ");
   const [subject, ...context] = details.filter((word) => !TASK_STOPWORDS.has(word));
+  const recipientIndex = details.indexOf("to");
+  const recipient = recipientIndex < 0 ? undefined : details[recipientIndex + 1];
   const pastAction = IRREGULAR_PAST.get(action) ||
     `${action}${action.endsWith("e") ? "d" : "ed"}`;
   // Split coordinated actions and requests, not nouns such as “research and development”.
@@ -62,10 +64,10 @@ function reportsPastWork(note, phrase, title) {
       "i",
     ).test(lead);
     if (!active && !passive) return false;
-    const objects = /\b(?:was|were)\b/i.test(clause)
-      ? words : words.slice(verbIndex + 1);
+    const objects = passive ? words : words.slice(verbIndex + 1);
     return (!subject || objects.includes(subject) || objects.includes(subject[0])) &&
-      (!context.length || context.some((word) => objects.includes(word)));
+      (!context.length || context.some((word) => objects.includes(word))) &&
+      (!recipient || objects.includes(recipient));
   });
 }
 
