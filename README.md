@@ -48,7 +48,7 @@ Short aliases are `ttt l` for listing and `ttt l o/a/w/d/c` for open, active, wa
 
 ## On-device inference
 
-Apple's Foundation Models framework receives a bounded local context from matching tasks, projects, and labels. It rewrites new-task titles, reuses the existing project and label taxonomy, and infers explicit lifecycle, priority, and due-date changes. New labels require an explicit `+label` token. Relative due dates use the current local date and timezone. Alfred shows every inferred mutation before approval. The raw note is preserved in the tracker description, and update comments remain exact. Disable Apple Intelligence in the workflow configuration to keep exact titles and rule-based labels.
+Apple's Foundation Models framework receives a bounded local context from matching tasks, projects, and labels. It rewrites new-task titles, reuses the existing project and label taxonomy, and infers explicit lifecycle, priority, and due-date changes. A past-tense report can also propose completing a matching open task; Alfred lists competing matches for explicit selection. New labels require an explicit `+label` token. Relative due dates use the current local date and timezone. Alfred shows every inferred mutation before approval. The raw note is preserved in the tracker description, and update comments remain exact. Disable Apple Intelligence in the workflow configuration to keep exact titles and rule-based labels.
 
 ## Optional semantic matching
 

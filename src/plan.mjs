@@ -281,9 +281,36 @@ export function buildItems(
 
   const changes = labelChanges(text, intent.labels);
   const title = intent.title?.trim() || text;
-  const updates = items
-    .slice(0, 5)
-    .map((candidate) => updateItem(text, candidate, changes, intent));
+  const taskRelativeCompletion =
+    intent.state === "completed" && intent.taskRelativeCompletion === true;
+  const completionTarget =
+    taskRelativeCompletion && typeof intent.completedTaskId === "string"
+      ? intent.completedTaskId.toLocaleLowerCase()
+      : undefined;
+  const alternativeIntent = taskRelativeCompletion
+    ? {
+        ...intent,
+        state: undefined,
+        completedTaskId: undefined,
+        taskRelativeCompletion: undefined,
+      }
+    : intent;
+  const candidates = items.slice(0, 5);
+  const completionIndex = completionTarget
+    ? candidates.findIndex(
+        (candidate) => candidate.displayId?.toLocaleLowerCase() === completionTarget,
+      )
+    : -1;
+  const updates = candidates.map((candidate, index) =>
+    updateItem(
+      text,
+      candidate,
+      changes,
+      taskRelativeCompletion && (completionIndex < 0 || index === completionIndex)
+        ? intent
+        : alternativeIntent,
+    ),
+  );
   if (!allowCreate)
     return updates.length
       ? updates
@@ -295,16 +322,22 @@ export function buildItems(
   );
   const otherProjects = projects.filter((project) => project !== inferredProject);
   const creates = [
-    createItem(text, title, inferredProject, changes, intent),
+    createItem(text, title, inferredProject, changes, alternativeIntent),
     ...(title === text
       ? []
-      : [createItem(text, text, inferredProject, changes, intent)]),
+      : [createItem(text, text, inferredProject, changes, alternativeIntent)]),
     ...(inferredProject
-      ? [createItem(text, title, undefined, changes, intent)]
+      ? [createItem(text, title, undefined, changes, alternativeIntent)]
       : []),
     ...otherProjects
       .slice(0, inferredProject ? 1 : 2)
-      .map((project) => createItem(text, title, project, changes, intent)),
+      .map((project) => createItem(text, title, project, changes, alternativeIntent)),
   ];
-  return [...creates, ...updates];
+  if (!taskRelativeCompletion) return [...creates, ...updates];
+  if (completionIndex < 0) return [...updates, ...creates];
+  return [
+    updates[completionIndex],
+    ...creates,
+    ...updates.filter((_, index) => index !== completionIndex),
+  ];
 }

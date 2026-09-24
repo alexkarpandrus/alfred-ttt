@@ -33,6 +33,78 @@ test("parseIntent rejects a state without an explicit lifecycle cue", () => {
   );
 });
 
+test("parseIntent accepts task-relative past-tense completion", () => {
+  const context = {
+    tasks: [
+      {
+        id: "de34c681",
+        title: "Add Wojtech to CODEOWNERS",
+        state: "open",
+      },
+    ],
+  };
+
+  assert.deepEqual(
+    parseIntent(
+      JSON.stringify({
+        title: "Add Wojtech to CODEOWNERS",
+        state: "open",
+        statePhrase: "added w to codeowners",
+        completedTaskId: "de34c681",
+      }),
+      "added w to codeowners",
+      context,
+    ),
+    {
+      title: "Add Wojtech to CODEOWNERS",
+      state: "completed",
+      taskRelativeCompletion: true,
+      completedTaskId: "de34c681",
+    },
+  );
+});
+
+test("parseIntent accepts an ambiguous task-relative completion", () => {
+  assert.deepEqual(
+    parseIntent(
+      JSON.stringify({
+        title: "Update CODEOWNERS",
+        state: "completed",
+        statePhrase: "updated CODEOWNERS",
+        completedTaskId: "",
+      }),
+      "updated CODEOWNERS",
+      {
+        tasks: [
+          { id: "first", state: "open" },
+          { id: "second", state: "active" },
+        ],
+      },
+    ),
+    {
+      title: "Update CODEOWNERS",
+      state: "completed",
+      taskRelativeCompletion: true,
+    },
+  );
+});
+
+test("parseIntent rejects task-relative completion without a completable task", () => {
+  assert.deepEqual(
+    parseIntent(
+      JSON.stringify({
+        title: "Record the CODEOWNERS update",
+        state: "completed",
+        statePhrase: "updated CODEOWNERS",
+        completedTaskId: "de34c681",
+      }),
+      "updated CODEOWNERS",
+      { tasks: [{ id: "de34c681", state: "completed" }] },
+    ),
+    { title: "Record the CODEOWNERS update" },
+  );
+});
+
 
 test("buildInferenceContext exposes bounded task taxonomy", () => {
   assert.deepEqual(
@@ -42,6 +114,7 @@ test("buildInferenceContext exposes bounded task taxonomy", () => {
           displayId: "abc123",
           title: "Prepare release notes",
           state: "open",
+          semanticProbability: 0.96,
           project: { displayId: "Anaconda" },
           labels: [{ displayId: "release" }, { displayId: "blocked" }],
         },
@@ -55,6 +128,7 @@ test("buildInferenceContext exposes bounded task taxonomy", () => {
           id: "abc123",
           title: "Prepare release notes",
           state: "open",
+          semanticProbability: 0.96,
           project: "Anaconda",
           labels: ["release"],
         },

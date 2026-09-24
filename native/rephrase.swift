@@ -34,8 +34,18 @@ let intentSchema = DynamicGenerationSchema(
         ),
         .init(
             name: "state",
-            description: "The explicit task state requested by the note, or unchanged when no state change is requested.",
+            description: "The task state requested by the note, including completed when a past-tense report says an existing task's action was carried out, or unchanged.",
             schema: stateSchema
+        ),
+        .init(
+            name: "statePhrase",
+            description: "The exact words from the raw note that support the state change, or an empty string.",
+            schema: DynamicGenerationSchema(type: String.self)
+        ),
+        .init(
+            name: "completedTaskId",
+            description: "The exact supplied task ID whose action the note reports as completed, or an empty string.",
+            schema: DynamicGenerationSchema(type: String.self)
         ),
         .init(
             name: "priority",
@@ -76,11 +86,14 @@ let session = LanguageModelSession(instructions: """
     Keep factual progress notes factual. Preserve names, project identifiers, commitments, technical identifiers, and meaning.
     Omit metadata-only priority phrases, due-date phrases, and +label tokens from the title.
     Reuse project and label terminology from similar tasks when relevant. Choose only a project supplied in context.
+    Jev semanticProbability values in task context rank likely matches; higher values mean a stronger match.
     Reuse existing labels when relevant. Create a new label only when the user writes it as +label.
     Never use open, active, waiting, completed, canceled, or blocked as labels.
-    A state change must be explicit. Infer completed only from explicit completion, active only from explicit starting or work in progress,
-    waiting only from explicit pausing or waiting on someone, open only from words such as reopen, resume, or unblock,
-    and canceled only from explicit cancellation. A reply, status report, or other update alone is unchanged.
+    A state change may be explicit. Also infer completed when a past-tense report says the action of a supplied open, active, or waiting task was carried out.
+    Copy the exact supporting words into statePhrase and set state to completed. Set completedTaskId only when exactly one task clearly matches; leave it empty when several tasks are plausible.
+    Do not infer completion from an action request, a general status report, or an update that does not say the matched task's action happened.
+    Infer active only from explicit starting or work in progress, waiting only from explicit pausing or waiting on someone,
+    open only from words such as reopen, resume, or unblock, and canceled only from explicit cancellation.
     A priority must be explicit, such as low prio, high priority, urgent, or no priority. Otherwise use unchanged.
     A due date must be explicit. Copy the exact supporting words into duePhrase. Otherwise leave dueAt and duePhrase empty.
     """)

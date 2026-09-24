@@ -16,6 +16,7 @@ const STATE_CUES = {
   canceled:
     /\b(?:cancel(?:ed|led|ing)?|drop(?:ped|ping)?|abandon(?:ed|ing)?|delete|deleted|deleting)\b/i,
 };
+const COMPLETABLE_STATES = new Set(["open", "active", "waiting"]);
 
 const PRIORITIES = new Set(["none", "low", "medium", "high", "urgent"]);
 const PRIORITY_PHRASES = {
@@ -134,6 +135,9 @@ export function buildInferenceContext(items = [], projects = [], labels = []) {
       id: item.displayId,
       title: item.title,
       state: item.state,
+      ...(Number.isFinite(item.semanticProbability)
+        ? { semanticProbability: item.semanticProbability }
+        : {}),
       project: entityName(item.project),
       labels: (item.labels || [])
         .map(entityName)
@@ -164,9 +168,25 @@ function stripMetadata(title, phrases) {
 export function parseIntent(output, input, context = {}) {
   try {
     const parsed = JSON.parse(output);
-    const state = STATE_CUES[parsed.state]?.test(input)
+    const explicitState = STATE_CUES[parsed.state]?.test(input)
       ? parsed.state
       : undefined;
+    const completableTasks = (context.tasks || []).filter((task) =>
+      COMPLETABLE_STATES.has(task.state),
+    );
+    const statePhraseSourced = sourcedPhrase(input, parsed.statePhrase);
+    const completedTask =
+      statePhraseSourced && typeof parsed.completedTaskId === "string"
+        ? completableTasks.find(
+            (task) =>
+              String(task.id).toLocaleLowerCase() ===
+              parsed.completedTaskId.trim().toLocaleLowerCase(),
+          )
+        : undefined;
+    const taskRelativeCompletion =
+      statePhraseSourced &&
+      Boolean(completedTask || (parsed.state === "completed" && completableTasks.length));
+    const state = explicitState || (taskRelativeCompletion ? "completed" : undefined);
     const priority =
       PRIORITIES.has(parsed.priority) &&
       sourcedPhrase(input, parsed.priorityPhrase) &&
@@ -210,6 +230,8 @@ export function parseIntent(output, input, context = {}) {
     const intent = {};
     if (title && title !== input.trim()) intent.title = title;
     if (state) intent.state = state;
+    if (taskRelativeCompletion) intent.taskRelativeCompletion = true;
+    if (completedTask) intent.completedTaskId = completedTask.id;
     if (priority) intent.priority = priority;
     if (dueAt) intent.dueAt = dueAt;
     if (project) intent.project = project;

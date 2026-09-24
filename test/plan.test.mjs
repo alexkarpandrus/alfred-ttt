@@ -160,6 +160,68 @@ test("buildItems puts standalone creation before matching updates", () => {
   });
 });
 
+test("buildItems prioritizes one task-relative completion", () => {
+  const results = buildItems("added w to codeowners", {
+    items: [
+      { displayId: "de34c681", title: "Add Wojtech to CODEOWNERS" },
+      { displayId: "other123", title: "Review CODEOWNERS policy" },
+    ],
+    intent: {
+      title: "Add Wojtech to CODEOWNERS",
+      state: "completed",
+      taskRelativeCompletion: true,
+      completedTaskId: "de34c681",
+    },
+  });
+
+  assert.deepEqual(decodeRequest(results[0].arg), {
+    action: "update_item",
+    item: "de34c681",
+    comment: "added w to codeowners",
+    state: "completed",
+  });
+  assert.equal(decodeRequest(results[1].arg).action, "create_item");
+  assert.equal(decodeRequest(results[1].arg).state, undefined);
+  assert.deepEqual(decodeRequest(results.at(-1).arg), {
+    action: "update_item",
+    item: "other123",
+    comment: "added w to codeowners",
+  });
+});
+
+test("buildItems asks the user to choose an ambiguous completion target", () => {
+  const results = buildItems("updated CODEOWNERS", {
+    items: [
+      { displayId: "first", title: "Update CODEOWNERS in Anaconda" },
+      { displayId: "second", title: "Update CODEOWNERS in Mamba" },
+    ],
+    intent: {
+      state: "completed",
+      taskRelativeCompletion: true,
+    },
+  });
+
+  assert.deepEqual(
+    results.slice(0, 2).map((result) => decodeRequest(result.arg)),
+    [
+      {
+        action: "update_item",
+        item: "first",
+        comment: "updated CODEOWNERS",
+        state: "completed",
+      },
+      {
+        action: "update_item",
+        item: "second",
+        comment: "updated CODEOWNERS",
+        state: "completed",
+      },
+    ],
+  );
+  assert.equal(decodeRequest(results[2].arg).action, "create_item");
+  assert.equal(decodeRequest(results[2].arg).state, undefined);
+});
+
 test("buildItems preserves a raw note when it offers an inferred title", () => {
   const results = buildItems("need ask Jade for a status update", {
     intent: { title: "Ask Jade for a status update" },
