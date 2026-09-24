@@ -65,9 +65,10 @@ function reportsPastWork(note, phrase, title) {
     ).test(lead);
     if (!active && !passive) return false;
     const objects = passive ? words : words.slice(verbIndex + 1);
+    const reportedRecipientIndex = words.indexOf("to", verbIndex + 1);
     return (!subject || objects.includes(subject) || objects.includes(subject[0])) &&
       (!context.length || context.some((word) => objects.includes(word))) &&
-      (!recipient || objects.includes(recipient));
+      (!recipient || (reportedRecipientIndex > verbIndex && words[reportedRecipientIndex + 1] === recipient));
   });
 }
 
