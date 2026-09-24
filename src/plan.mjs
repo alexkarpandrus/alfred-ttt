@@ -155,9 +155,14 @@ function mutationSummary({ addLabels, removeLabels }, intent) {
 
 function updateItem(input, candidate, changes, intent) {
   const target = candidate.displayId;
+  const summary = mutationSummary(changes, intent);
+  let action = summary === "comment only" ? "Comment on task" : "Update task";
+  if (intent.state) action = `Mark task ${intent.state}`;
+  if (intent.state === "completed") action = "Complete task";
+  if (intent.state === "canceled") action = "Cancel task";
   return {
-    title: `Update “${candidate.title || target}”`,
-    subtitle: `${target} · ${mutationSummary(changes, intent)} · Return to apply`,
+    title: `${action}: ${candidate.title || target}`,
+    subtitle: `${target} · ${summary} · Return to apply`,
     arg: requestArg({
       action: "update_item",
       item: target,
@@ -175,9 +180,11 @@ function createItem(rawNote, title, project, changes, intent) {
   const projectName = project?.displayId;
   const location = projectName ? ` in ${projectName}` : "";
   const rephrased = title !== rawNote;
+  const summary = mutationSummary(changes, intent);
+  const state = intent.state && intent.state !== "open" ? `${intent.state} ` : "new ";
   return {
-    title: `Create task${location}: ${title}`,
-    subtitle: `${rephrased ? "rephrased · " : "as written · "}${mutationSummary(changes, intent)} · Return to create`,
+    title: `Create ${state}task${location}: ${title}`,
+    subtitle: `${rephrased ? "rephrased · original note saved" : "as written"}${summary === "comment only" ? "" : ` · ${summary}`} · Return to create`,
     arg: requestArg({
       action: "create_item",
       title,
