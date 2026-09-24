@@ -267,7 +267,7 @@ test("buildItems applies inferred priority and due date", () => {
   assert.deepEqual(decodeRequest(result.arg), {
     action: "create_item",
     title: "Ask M about B",
-    description: "Ask M about B low prio tomorrow",
+    comment: "Ask M about B low prio tomorrow",
     priority: "low",
     dueAt: "2026-09-24T07:00:00.000Z",
   });
@@ -285,12 +285,14 @@ test("buildItems puts standalone creation before matching updates", () => {
   assert.deepEqual(decodeRequest(results[0].arg), {
     action: "create_item",
     title: "I promised Jade a status update",
+    comment: "I promised Jade a status update",
     labels: ["promised", "follow-up"],
     state: "waiting",
   });
   assert.deepEqual(decodeRequest(results[1].arg), {
     action: "create_item",
     title: "I promised Jade a status update",
+    comment: "I promised Jade a status update",
     project: "Project X",
     labels: ["promised", "follow-up"],
     state: "waiting",
@@ -458,7 +460,7 @@ test("buildItems preserves a raw note when it offers an inferred title", () => {
   assert.deepEqual(decodeRequest(results[0].arg), {
     action: "create_item",
     title: "Ask Jade for a status update",
-    description: "need ask Jade for a status update",
+    comment: "need ask Jade for a status update",
     labels: ["follow-up"],
   });
   assert.equal(results[0].title, "🆕 Create: Ask Jade for a status update");
@@ -467,6 +469,7 @@ test("buildItems preserves a raw note when it offers an inferred title", () => {
   assert.deepEqual(decodeRequest(results[1].arg), {
     action: "create_item",
     title: "need ask Jade for a status update",
+    comment: "need ask Jade for a status update",
     labels: ["follow-up"],
   });
 });
@@ -485,7 +488,7 @@ test("buildItems prefers the inferred existing project and labels", () => {
   assert.deepEqual(decodeRequest(results[0].arg), {
     action: "create_item",
     title: "Prepare release notes",
-    description: "prepare release notes",
+    comment: "prepare release notes",
     project: "Anaconda",
     labels: ["release"],
   });

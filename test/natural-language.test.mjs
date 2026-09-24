@@ -282,6 +282,28 @@ test("lookup phrases browse; action notes still offer creation", () => {
   }
 });
 
+test("explicit capture requests keep Create when the model guesses lookup", () => {
+  const unrelated = { displayId: "unrelated", title: "Raise deprecate request for patrol", state: "open" };
+  const notes = ["respond to Maryna", "reply to Maryna", "please respond to Maryna",
+    "create a task to respond to Maryna", "add a new task to respond to Maryna"];
+  for (const note of notes) {
+    const existing = { displayId: "matching", title: note, state: "open" };
+    const tasks = [unrelated, existing].map(({ displayId, title, state }) => ({ id: displayId, title, state }));
+    const intent = parseIntent(JSON.stringify({ inputMode: "lookup", lookupTaskIds: ["unrelated"],
+      title: "Respond to Maryna" }), note, { tasks });
+    assert.equal(intent.inputMode, "capture", note);
+    assert.deepEqual(matchingTitles([existing], note), [], note);
+    for (const items of [[unrelated], [existing]]) {
+      const request = decodeRequest(buildItems(note, { items, intent })[0].arg);
+      assert.equal(request.action, "create_item", note);
+      assert.equal(request.comment, note);
+    }
+  }
+  assert.equal(parseIntent(JSON.stringify({ inputMode: "lookup" }), "respond to Maryna?").inputMode, "lookup");
+  const existing = { title: "Respond to Maryna" };
+  assert.deepEqual(matchingTitles([existing], "Maryna"), [existing]);
+});
+
 test("targeted state commands preserve the note and never create a task", () => {
   const cases = [
     ["done", "completed", "completed"],
@@ -334,4 +356,27 @@ test("priority and due dates require sourced, explicit words", () => {
     dueAt: "2026-10-23T09:00:00-07:00", duePhrase: "by Friday",
   }), "Submit invoice soon");
   assert.equal(invented.dueAt, undefined, "unsourced due date");
+});
+
+test("a bare trailing day ends at local 23:59:59 even if the model misses or guesses midnight", () => {
+  const note = "respond to Maryna tomorrow";
+  const before = new Date();
+  const intent = parseIntent(JSON.stringify({ inputMode: "lookup", title: "Respond to Maryna tomorrow",
+    dueAt: "", duePhrase: "" }), note);
+  const after = new Date();
+  const tomorrow = (now) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59).toISOString();
+  assert.ok([tomorrow(before), tomorrow(after)].includes(intent.dueAt));
+  assert.equal(parseIntent(JSON.stringify({ dueAt: "2026-09-25T00:00:00+02:00",
+    duePhrase: "tomorrow" }), note).dueAt, intent.dueAt);
+  const today = (now) => new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
+  assert.ok([today(before), today(after)].includes(parseIntent("{}", "respond to Maryna today").dueAt));
+  assert.equal(intent.title, "Respond to Maryna");
+  const create = decodeRequest(buildItems(note, { intent })[0].arg);
+  assert.equal(create.action, "create_item");
+  assert.equal(create.dueAt, intent.dueAt);
+  assert.equal(create.comment, note);
+  for (const uncertain of ["maybe respond to Maryna tomorrow", "respond to Maryna not tomorrow",
+    "respond to Maryna tomorrow?", "respond to Maryna tomorrow at 5pm"]) {
+    assert.equal(parseIntent("{}", uncertain).dueAt, undefined, uncertain);
+  }
 });

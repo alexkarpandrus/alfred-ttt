@@ -1,4 +1,4 @@
-import { reportsProgress } from "./rephrase.mjs";
+import { isCaptureRequest, reportsProgress } from "./rephrase.mjs";
 
 const LABEL_RULES = [
   {
@@ -194,7 +194,7 @@ function createItem(rawNote, title, project, changes, intent) {
     arg: requestArg({
       action: "create_item",
       title,
-      description: rephrased ? rawNote : undefined,
+      comment: rawNote,
       project: projectName,
       labels: changes.addLabels,
       state: intent.state,
@@ -278,7 +278,7 @@ export function buildUpdatePrompt(candidate, target) {
 }
 
 export function matchingTitles(items, text) {
-  if (reportsProgress(text)) return [];
+  if (reportsProgress(text) || isCaptureRequest(text)) return [];
   const query = text.toLocaleLowerCase();
   return items.filter((item) => item.title?.toLocaleLowerCase().includes(query));
 }

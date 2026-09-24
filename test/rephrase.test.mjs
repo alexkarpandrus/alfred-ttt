@@ -479,6 +479,8 @@ test("parseIntent accepts only relevant existing labels", () => {
 
 
 test("parseIntent accepts explicit priority and due-date metadata", () => {
+  const now = new Date();
+  const endOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59).toISOString();
   assert.deepEqual(
     parseIntent(
       JSON.stringify({
@@ -496,7 +498,7 @@ test("parseIntent accepts explicit priority and due-date metadata", () => {
     {
       title: "Ask M about B",
       priority: "low",
-      dueAt: "2026-09-24T07:00:00.000Z",
+      dueAt: endOfTomorrow,
     },
   );
 });
@@ -517,6 +519,13 @@ test("parseIntent preserves an explicit due time", () => {
       dueAt: "2026-09-25T00:00:00.000Z",
     },
   );
+});
+
+test("parseIntent places date-only deadlines at the end of the supplied calendar day", () => {
+  const intent = parseIntent(JSON.stringify({
+    dueAt: "2026-09-25T00:00:00+02:00", duePhrase: "September 25",
+  }), "Submit invoice September 25");
+  assert.equal(intent.dueAt, "2026-09-25T21:59:59.000Z");
 });
 
 test("parseIntent rejects unsourced priority and due-date metadata", () => {

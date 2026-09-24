@@ -78,7 +78,7 @@ let intentSchema = DynamicGenerationSchema(
         ),
         .init(
             name: "dueAt",
-            description: "The explicit due date as an ISO-8601 timestamp with UTC offset, or an empty string. Resolve relative dates from the supplied local date and time. Use local 00:00:00 when no time is given.",
+            description: "The explicit due date as an ISO-8601 timestamp with UTC offset, or an empty string. Resolve relative dates from the supplied local date and time. Use local 23:59:59 when no time is given.",
             schema: DynamicGenerationSchema(type: String.self)
         ),
         .init(

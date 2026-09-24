@@ -32,6 +32,10 @@ const STARTED_REPORT = /^(?:(?:(?:i|we)\s+(?:(?:have|had)\s+)?|(?:just|already)\
 export function reportsProgress(input) {
   return STARTED_REPORT.test(input) || FIRST_PERSON_UPDATE.test(input) || PAST_REPORT.test(input);
 }
+
+export function isCaptureRequest(input) {
+  return /^\s*(?:please\s+)?(?:(?:respond|reply)\s+to|(?:create|add)\s+(?:(?:a|the)\s+)?(?:new\s+)?task)\b/i.test(input) && !/\?\s*$/.test(input);
+}
 const TASK_STOPWORDS = new Set(["a", "an", "the", "to", "in", "on", "for", "of", "with", "from", "about", "by", "at", "and"]);
 const PROGRESS_STOPWORDS = new Set([...TASK_STOPWORDS, "i", "we", "m", "re", "am", "are", "have", "had", "just", "already", "started", "began", "working", "work", "project", "feature", "task"]);
 const IRREGULAR_PAST = new Map([
@@ -189,11 +193,21 @@ function dueInstant(value, phrase) {
   let instant;
   if (!hasTime && dateOnly) {
     const offset = dateOnly[2].replace(/^([+-]\d{2})(\d{2})$/, "$1:$2");
-    instant = new Date(`${dateOnly[1]}T00:00:00${offset}`);
+    instant = new Date(`${dateOnly[1]}T23:59:59${offset}`);
   } else {
     instant = new Date(value);
   }
   return Number.isNaN(instant.valueOf()) ? undefined : instant.toISOString();
+}
+
+function missedRelativeDue(input) {
+  // ponytail: Only bare trailing days; extend to timed phrases after measured misses.
+  if (/\b(?:not|never|maybe|perhaps|might|may|could|if|[a-z]+n['’]t)\b/i.test(input.replace(/\bMay\b/g, ""))) return undefined;
+  const phrase = /\b(today|tomorrow)\s*[.!]?\s*$/i.exec(input)?.[1];
+  if (!phrase) return undefined;
+  const now = new Date();
+  const day = now.getDate() + (phrase.toLowerCase() === "tomorrow" ? 1 : 0);
+  return { phrase, at: new Date(now.getFullYear(), now.getMonth(), day, 23, 59, 59).toISOString() };
 }
 
 export function buildInferenceContext(items = [], projects = [], labels = []) {
@@ -274,15 +288,16 @@ export function parseIntent(output, input, context = {}) {
       PRIORITY_PHRASES[parsed.priority]?.test(parsed.priorityPhrase)
         ? parsed.priority
         : undefined;
-    const dueAt =
-      sourcedPhrase(input, parsed.duePhrase) && DUE_PHRASE.test(parsed.duePhrase)
-        ? dueInstant(parsed.dueAt, parsed.duePhrase)
-        : undefined;
+    const duePhrase = sourcedPhrase(input, parsed.duePhrase) && DUE_PHRASE.test(parsed.duePhrase)
+      ? parsed.duePhrase : undefined;
+    const modelDueAt = duePhrase && dueInstant(parsed.dueAt, duePhrase);
+    const relativeDue = missedRelativeDue(input);
+    const dueAt = relativeDue?.at || modelDueAt;
     let title;
     if (typeof parsed.title === "string") {
       const metadataPhrases = [];
       if (priority) metadataPhrases.push(parsed.priorityPhrase);
-      if (dueAt) metadataPhrases.push(parsed.duePhrase);
+      if (dueAt) metadataPhrases.push(relativeDue?.phrase || duePhrase);
       title = stripMetadata(parsed.title, metadataPhrases);
     }
     const project =
@@ -310,7 +325,7 @@ export function parseIntent(output, input, context = {}) {
 
     const intent = {};
     const inputMode = parsed.inputMode === "lookup" &&
-      (FIRST_PERSON_UPDATE.test(input) || startedWork) && !/\?\s*$/.test(input)
+      (FIRST_PERSON_UPDATE.test(input) || startedWork || isCaptureRequest(input)) && !/\?\s*$/.test(input)
       ? "capture" : parsed.inputMode;
     if (inputMode === "lookup" || inputMode === "capture") {
       intent.inputMode = inputMode;
