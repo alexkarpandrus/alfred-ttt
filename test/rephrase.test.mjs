@@ -50,7 +50,7 @@ test("parseIntent accepts task-relative past-tense completion", () => {
         title: "Add Wojtech to CODEOWNERS",
         state: "open",
         statePhrase: "added w to codeowners",
-        completedTaskId: "de34c681",
+        completedTaskIds: ["de34c681"],
       }),
       "added w to codeowners",
       context,
@@ -59,7 +59,7 @@ test("parseIntent accepts task-relative past-tense completion", () => {
       title: "Add Wojtech to CODEOWNERS",
       state: "completed",
       taskRelativeCompletion: true,
-      completedTaskId: "de34c681",
+      completedTaskIds: ["de34c681"],
     },
   );
 });
@@ -71,13 +71,15 @@ test("parseIntent accepts an ambiguous task-relative completion", () => {
         title: "Update CODEOWNERS",
         state: "completed",
         statePhrase: "updated CODEOWNERS",
-        completedTaskId: "",
+        completedTaskIds: ["first", "second", "canceled", "missing"],
       }),
       "updated CODEOWNERS",
       {
         tasks: [
           { id: "first", state: "open" },
           { id: "second", state: "active" },
+          { id: "unrelated", state: "waiting" },
+          { id: "canceled", state: "canceled" },
         ],
       },
     ),
@@ -85,6 +87,7 @@ test("parseIntent accepts an ambiguous task-relative completion", () => {
       title: "Update CODEOWNERS",
       state: "completed",
       taskRelativeCompletion: true,
+      completedTaskIds: ["first", "second"],
     },
   );
 });
@@ -96,12 +99,52 @@ test("parseIntent rejects task-relative completion without a completable task", 
         title: "Record the CODEOWNERS update",
         state: "completed",
         statePhrase: "updated CODEOWNERS",
-        completedTaskId: "de34c681",
+        completedTaskIds: ["de34c681"],
       }),
       "updated CODEOWNERS",
       { tasks: [{ id: "de34c681", state: "completed" }] },
     ),
     { title: "Record the CODEOWNERS update" },
+  );
+});
+
+test("parseIntent rejects model-inferred completion for action requests", () => {
+  const context = { tasks: [{ id: "de34c681", state: "open" }] };
+  for (const input of [
+    "add w to codeowners",
+    "please add w to codeowners",
+    "w should be added to codeowners",
+    "w was not added to codeowners",
+    "set w in codeowners",
+  ]) {
+    assert.deepEqual(
+      parseIntent(
+        JSON.stringify({
+          state: "completed",
+          statePhrase: input,
+          completedTaskIds: ["de34c681"],
+        }),
+        input,
+        context,
+      ),
+      {},
+      input,
+    );
+  }
+});
+
+test("parseIntent accepts other reported past work", () => {
+  assert.deepEqual(
+    parseIntent(
+      JSON.stringify({
+        state: "completed",
+        statePhrase: "I sent the report",
+        completedTaskIds: ["report"],
+      }),
+      "I sent the report",
+      { tasks: [{ id: "report", state: "active" }] },
+    ),
+    { state: "completed", taskRelativeCompletion: true, completedTaskIds: ["report"] },
   );
 });
 

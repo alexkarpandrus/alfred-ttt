@@ -281,32 +281,21 @@ export function buildItems(
 
   const changes = labelChanges(text, intent.labels);
   const title = intent.title?.trim() || text;
-  const taskRelativeCompletion =
-    intent.state === "completed" && intent.taskRelativeCompletion === true;
-  const completionTarget =
-    taskRelativeCompletion && typeof intent.completedTaskId === "string"
-      ? intent.completedTaskId.toLocaleLowerCase()
-      : undefined;
-  const alternativeIntent = taskRelativeCompletion
-    ? {
-        ...intent,
-        state: undefined,
-        completedTaskId: undefined,
-        taskRelativeCompletion: undefined,
-      }
+  const completionIds = new Set(
+    intent.state === "completed" && intent.taskRelativeCompletion
+      ? intent.completedTaskIds.map((id) => id.toLocaleLowerCase())
+      : [],
+  );
+  const alternativeIntent = completionIds.size
+    ? { ...intent, state: undefined }
     : intent;
   const candidates = items.slice(0, 5);
-  const completionIndex = completionTarget
-    ? candidates.findIndex(
-        (candidate) => candidate.displayId?.toLocaleLowerCase() === completionTarget,
-      )
-    : -1;
-  const updates = candidates.map((candidate, index) =>
+  const updates = candidates.map((candidate) =>
     updateItem(
       text,
       candidate,
       changes,
-      taskRelativeCompletion && (completionIndex < 0 || index === completionIndex)
+      completionIds.has(candidate.displayId?.toLocaleLowerCase())
         ? intent
         : alternativeIntent,
     ),
@@ -333,11 +322,10 @@ export function buildItems(
       .slice(0, inferredProject ? 1 : 2)
       .map((project) => createItem(text, title, project, changes, alternativeIntent)),
   ];
-  if (!taskRelativeCompletion) return [...creates, ...updates];
-  if (completionIndex < 0) return [...updates, ...creates];
+  if (!completionIds.size) return [...creates, ...updates];
   return [
-    updates[completionIndex],
+    ...updates.filter((_, index) => completionIds.has(candidates[index].displayId?.toLocaleLowerCase())),
     ...creates,
-    ...updates.filter((_, index) => index !== completionIndex),
+    ...updates.filter((_, index) => !completionIds.has(candidates[index].displayId?.toLocaleLowerCase())),
   ];
 }

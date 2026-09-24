@@ -170,7 +170,7 @@ test("buildItems prioritizes one task-relative completion", () => {
       title: "Add Wojtech to CODEOWNERS",
       state: "completed",
       taskRelativeCompletion: true,
-      completedTaskId: "de34c681",
+      completedTaskIds: ["de34c681"],
     },
   });
 
@@ -194,10 +194,13 @@ test("buildItems asks the user to choose an ambiguous completion target", () => 
     items: [
       { displayId: "first", title: "Update CODEOWNERS in Anaconda" },
       { displayId: "second", title: "Update CODEOWNERS in Mamba" },
+      { displayId: "third", title: "Await approval of another task", state: "waiting" },
+      { displayId: "fourth", title: "Old canceled task", state: "canceled" },
     ],
     intent: {
       state: "completed",
       taskRelativeCompletion: true,
+      completedTaskIds: ["first", "second"],
     },
   });
 
@@ -220,6 +223,13 @@ test("buildItems asks the user to choose an ambiguous completion target", () => 
   );
   assert.equal(decodeRequest(results[2].arg).action, "create_item");
   assert.equal(decodeRequest(results[2].arg).state, undefined);
+  assert.deepEqual(
+    results.slice(-2).map((result) => decodeRequest(result.arg)),
+    [
+      { action: "update_item", item: "third", comment: "updated CODEOWNERS" },
+      { action: "update_item", item: "fourth", comment: "updated CODEOWNERS" },
+    ],
+  );
 });
 
 test("buildItems preserves a raw note when it offers an inferred title", () => {

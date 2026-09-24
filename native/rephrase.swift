@@ -24,6 +24,11 @@ let labelsSchema = DynamicGenerationSchema(
     minimumElements: 0,
     maximumElements: 5
 )
+let taskIdsSchema = DynamicGenerationSchema(
+    arrayOf: DynamicGenerationSchema(type: String.self),
+    minimumElements: 0,
+    maximumElements: 5
+)
 let intentSchema = DynamicGenerationSchema(
     name: "WorkIntent",
     properties: [
@@ -43,9 +48,9 @@ let intentSchema = DynamicGenerationSchema(
             schema: DynamicGenerationSchema(type: String.self)
         ),
         .init(
-            name: "completedTaskId",
-            description: "The exact supplied task ID whose action the note reports as completed, or an empty string.",
-            schema: DynamicGenerationSchema(type: String.self)
+            name: "completedTaskIds",
+            description: "IDs of only the supplied open, active, or waiting tasks whose action the note reports as done. Include every plausible match; return an empty array for a request or unrelated update.",
+            schema: taskIdsSchema
         ),
         .init(
             name: "priority",
@@ -90,7 +95,7 @@ let session = LanguageModelSession(instructions: """
     Reuse existing labels when relevant. Create a new label only when the user writes it as +label.
     Never use open, active, waiting, completed, canceled, or blocked as labels.
     A state change may be explicit. Also infer completed when a past-tense report says the action of a supplied open, active, or waiting task was carried out.
-    Copy the exact supporting words into statePhrase and set state to completed. Set completedTaskId only when exactly one task clearly matches; leave it empty when several tasks are plausible.
+    Copy the exact supporting words into statePhrase and set state to completed. Put only plausible matching task IDs in completedTaskIds, including all plausible matches when ambiguous.
     Do not infer completion from an action request, a general status report, or an update that does not say the matched task's action happened.
     Infer active only from explicit starting or work in progress, waiting only from explicit pausing or waiting on someone,
     open only from words such as reopen, resume, or unblock, and canceled only from explicit cancellation.

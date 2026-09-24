@@ -18,6 +18,13 @@ const STATE_CUES = {
 };
 const COMPLETABLE_STATES = new Set(["open", "active", "waiting"]);
 
+// Model-selected completion targets still need evidence that the note reports past work.
+function reportsPastWork(note) {
+  if (/\b(?:not|never|should|could|would|will|must|might|may|need(?:s|ed)?|want(?:s|ed)?|plan(?:s|ned)?|please)\b/i.test(note)) return false;
+  const pastVerb = "(?:[a-z]{2,}ed|sent|wrote|made|did|done|built|ran|went|gave|got|took)";
+  return new RegExp(`^(?:(?:i|we|they|he|she|just|already)\\s+){0,2}${pastVerb}\\b|\\b(?:was|were|have|has|had)\\s+(?:just\\s+|already\\s+)?${pastVerb}\\b`, "i").test(note);
+}
+
 const PRIORITIES = new Set(["none", "low", "medium", "high", "urgent"]);
 const PRIORITY_PHRASES = {
   none: /\b(?:(?:no|without)\s+prio(?:rity)?|(?:clear|remove)\s+(?:the\s+)?prio(?:rity)?)\b/i,
@@ -174,18 +181,18 @@ export function parseIntent(output, input, context = {}) {
     const completableTasks = (context.tasks || []).filter((task) =>
       COMPLETABLE_STATES.has(task.state),
     );
-    const statePhraseSourced = sourcedPhrase(input, parsed.statePhrase);
-    const completedTask =
-      statePhraseSourced && typeof parsed.completedTaskId === "string"
-        ? completableTasks.find(
-            (task) =>
-              String(task.id).toLocaleLowerCase() ===
-              parsed.completedTaskId.trim().toLocaleLowerCase(),
-          )
-        : undefined;
+    const selectedIds = new Set(
+      (Array.isArray(parsed.completedTaskIds) ? parsed.completedTaskIds : [])
+        .filter((id) => typeof id === "string")
+        .map((id) => id.toLocaleLowerCase()),
+    );
+    const completedTasks = completableTasks.filter((task) =>
+      selectedIds.has(String(task.id).toLocaleLowerCase()),
+    );
     const taskRelativeCompletion =
-      statePhraseSourced &&
-      Boolean(completedTask || (parsed.state === "completed" && completableTasks.length));
+      reportsPastWork(input) &&
+      sourcedPhrase(input, parsed.statePhrase) &&
+      completedTasks.length > 0;
     const state = explicitState || (taskRelativeCompletion ? "completed" : undefined);
     const priority =
       PRIORITIES.has(parsed.priority) &&
@@ -231,7 +238,7 @@ export function parseIntent(output, input, context = {}) {
     if (title && title !== input.trim()) intent.title = title;
     if (state) intent.state = state;
     if (taskRelativeCompletion) intent.taskRelativeCompletion = true;
-    if (completedTask) intent.completedTaskId = completedTask.id;
+    if (taskRelativeCompletion) intent.completedTaskIds = completedTasks.map((task) => task.id);
     if (priority) intent.priority = priority;
     if (dueAt) intent.dueAt = dueAt;
     if (project) intent.project = project;
