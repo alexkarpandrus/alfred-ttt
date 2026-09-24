@@ -77,7 +77,7 @@ test("parseIntent accepts an ambiguous task-relative completion", () => {
       {
         tasks: [
           { id: "first", title: "Update CODEOWNERS", state: "open" },
-          { id: "second", title: "Update CODEOWNERS in Mamba", state: "active" },
+          { id: "second", title: "Update CODEOWNERS", state: "active" },
           { id: "unrelated", state: "waiting" },
           { id: "canceled", state: "canceled" },
         ],
@@ -149,6 +149,22 @@ test("parseIntent accepts other reported past work", () => {
   );
 });
 
+test("parseIntent accepts an irregular past form of the task action", () => {
+  const input = "I wrote report";
+  assert.deepEqual(
+    parseIntent(
+      JSON.stringify({
+        state: "completed",
+        statePhrase: input,
+        completedTaskIds: ["report"],
+      }),
+      input,
+      { tasks: [{ id: "report", title: "Write report", state: "open" }] },
+    ),
+    { state: "completed", taskRelativeCompletion: true, completedTaskIds: ["report"] },
+  );
+});
+
 test("parseIntent accepts completed work with adverbs and later request clauses", () => {
   const context = { tasks: [{ id: "de34c681", title: "Add Wojtech to CODEOWNERS", state: "open" }] };
   for (const [input, statePhrase] of [
@@ -181,6 +197,8 @@ test("parseIntent does not use past work from a different clause", () => {
   for (const [input, statePhrase] of [
     ["add w to codeowners; I sent the report", "I sent the report"],
     ["add w to codeowners; I added the report to codeowners", "add w to codeowners"],
+    ["I sent the report and add w to codeowners", "add w to codeowners"],
+    ["I added the report to codeowners", "I added the report to codeowners"],
   ]) {
     assert.deepEqual(
       parseIntent(

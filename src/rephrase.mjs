@@ -26,25 +26,32 @@ const PAST_REPORT = new RegExp(
 );
 const REQUEST_OR_NEGATION = /\b(?:not|never|should|could|would|will|must|might|may|need(?:s|ed)?|want(?:s|ed)?|plan(?:s|ned)?|please)\b/i;
 const TASK_STOPWORDS = new Set(["a", "an", "the", "to", "in", "on", "for", "of", "with", "from", "about", "by", "at", "and"]);
+const IRREGULAR_PAST = new Map([
+  ["send", "sent"], ["write", "wrote"], ["make", "made"], ["run", "ran"],
+  ["go", "went"], ["give", "gave"], ["get", "got"], ["take", "took"],
+  ["do", "did"], ["build", "built"], ["plan", "planned"], ["try", "tried"],
+]);
 
 function reportsPastWork(note, phrase, title) {
   if (!sourcedPhrase(note, phrase)) return false;
   const [action, ...details] = normalized(title).split(" ");
-  const subjects = details.filter((word) => !TASK_STOPWORDS.has(word));
-  const clauses = note.split(/[,;.!?]|\bbut\b|\band\s+(?=(?:need|want|should|must|please)\b)/i);
-  const hasAction = (words) => words.some((word, index) =>
-    word.startsWith(action.slice(0, 3)) && words[index - 1] !== "to");
+  const [subject, ...context] = details.filter((word) => !TASK_STOPWORDS.has(word));
+  const pastAction = IRREGULAR_PAST.get(action) ||
+    `${action}${action.endsWith("e") ? "d" : "ed"}`;
+  const clauses = note.split(/[,;.!?]|\b(?:but|and)\b/i);
   const phraseClause = clauses.find((clause) => sourcedPhrase(clause, phrase));
   if (phraseClause && !PAST_REPORT.test(phraseClause.trim()) &&
-      hasAction(normalized(phraseClause).split(" "))) return false;
+      normalized(phraseClause).split(" ").includes(action)) return false;
 
   return clauses.some((clause) => {
     if (REQUEST_OR_NEGATION.test(clause) || !PAST_REPORT.test(clause.trim())) return false;
     const words = normalized(clause).split(" ");
-    return hasAction(words) &&
-      (!subjects.length || subjects.some((subject) =>
-        words.some((word) => word === subject ||
-          (word.length >= 5 && subject.length >= 5 && word.slice(0, 5) === subject.slice(0, 5)))));
+    const verbIndex = words.indexOf(pastAction);
+    if (verbIndex < 0) return false;
+    const objects = /\b(?:was|were)\b/i.test(clause)
+      ? words : words.slice(verbIndex + 1);
+    return (!subject || objects.includes(subject) || objects.includes(subject[0])) &&
+      (!context.length || context.some((word) => objects.includes(word)));
   });
 }
 
