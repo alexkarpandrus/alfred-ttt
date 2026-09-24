@@ -240,12 +240,32 @@ test("parseIntent does not use past work from a different clause", () => {
   }
 });
 
+test("parseIntent accepts task nouns and a month that resemble request words", () => {
+  for (const [input, title] of [
+    ["I updated the plan", "Update plan"],
+    ["I sent the report in May", "Send report"],
+  ]) {
+    assert.deepEqual(
+      parseIntent(
+        JSON.stringify({ state: "completed", statePhrase: input, completedTaskIds: ["task"] }),
+        input,
+        { tasks: [{ id: "task", title, state: "open" }] },
+      ),
+      { state: "completed", taskRelativeCompletion: true, completedTaskIds: ["task"] },
+      input,
+    );
+  }
+});
+
 test("parseIntent does not complete an uncertain past-work report", () => {
   for (const input of [
     "I checked whether the report was sent",
     "I checked if the report was sent",
     "Maybe the report was sent",
     "The report was sent?",
+    "I thought the report was sent",
+    "I wasn't sure the report was sent",
+    "I wasn’t sure the report was sent",
   ]) {
     assert.deepEqual(
       parseIntent(

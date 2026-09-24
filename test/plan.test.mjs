@@ -213,6 +213,33 @@ test("buildItems prioritizes one task-relative completion", () => {
   });
 });
 
+test("task-relative completion keeps unrelated updates comment-only", () => {
+  const input = "I sent the report, high priority +ops";
+  const results = buildItems(input, {
+    items: [
+      { displayId: "report", title: "Send report", state: "open" },
+      { displayId: "other", title: "Review finances", state: "canceled" },
+    ],
+    intent: {
+      state: "completed",
+      taskRelativeCompletion: true,
+      completedTaskIds: ["report"],
+      priority: "high",
+      labels: ["ops"],
+    },
+  });
+
+  assert.deepEqual(decodeRequest(results[0].arg), {
+    action: "update_item", item: "report", comment: input,
+    state: "completed", priority: "high", addLabels: ["ops"],
+  });
+  assert.equal(decodeRequest(results[1].arg).priority, "high");
+  assert.equal(results.at(-1).title, "💬 Comment: Review finances");
+  assert.deepEqual(decodeRequest(results.at(-1).arg), {
+    action: "update_item", item: "other", comment: input,
+  });
+});
+
 test("buildItems asks the user to choose an ambiguous completion target", () => {
   const results = buildItems("updated CODEOWNERS", {
     items: [

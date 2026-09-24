@@ -300,15 +300,15 @@ export function buildItems(
   const alternativeIntent = completionIds.size
     ? { ...intent, state: undefined }
     : intent;
+  const otherChanges = completionIds.size ? { addLabels: [], removeLabels: [] } : changes;
+  const otherIntent = completionIds.size ? {} : intent;
   const candidates = items.slice(0, 5);
   const updates = candidates.map((candidate) =>
     updateItem(
       text,
       candidate,
-      changes,
-      completionIds.has(candidate.displayId?.toLocaleLowerCase())
-        ? intent
-        : alternativeIntent,
+      completionIds.has(candidate.displayId?.toLocaleLowerCase()) ? changes : otherChanges,
+      completionIds.has(candidate.displayId?.toLocaleLowerCase()) ? intent : otherIntent,
     ),
   );
   if (!allowCreate)
