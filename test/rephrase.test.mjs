@@ -165,6 +165,24 @@ test("parseIntent accepts an irregular past form of the task action", () => {
   );
 });
 
+test("parseIntent recognizes doubled consonants and conjunctions within a task", () => {
+  for (const [input, title] of [
+    ["I stopped timer", "Stop timer"],
+    ["I dropped report", "Drop report"],
+    ["I updated research and development docs", "Update research and development docs"],
+  ]) {
+    assert.deepEqual(
+      parseIntent(
+        JSON.stringify({ state: "completed", statePhrase: input, completedTaskIds: ["task"] }),
+        input,
+        { tasks: [{ id: "task", title, state: "open" }] },
+      ),
+      { state: "completed", taskRelativeCompletion: true, completedTaskIds: ["task"] },
+      input,
+    );
+  }
+});
+
 test("parseIntent accepts completed work with adverbs and later request clauses", () => {
   const context = { tasks: [{ id: "de34c681", title: "Add Wojtech to CODEOWNERS", state: "open" }] };
   for (const [input, statePhrase] of [

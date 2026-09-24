@@ -30,6 +30,7 @@ const IRREGULAR_PAST = new Map([
   ["send", "sent"], ["write", "wrote"], ["make", "made"], ["run", "ran"],
   ["go", "went"], ["give", "gave"], ["get", "got"], ["take", "took"],
   ["do", "did"], ["build", "built"], ["plan", "planned"], ["try", "tried"],
+  ["stop", "stopped"], ["drop", "dropped"],
 ]);
 
 function reportsPastWork(note, phrase, title) {
@@ -38,7 +39,10 @@ function reportsPastWork(note, phrase, title) {
   const [subject, ...context] = details.filter((word) => !TASK_STOPWORDS.has(word));
   const pastAction = IRREGULAR_PAST.get(action) ||
     `${action}${action.endsWith("e") ? "d" : "ed"}`;
-  const clauses = note.split(/[,;.!?]|\b(?:but|and)\b/i);
+  const clauses = note.split(new RegExp(
+    `[,;.!?]|\\bbut\\b|\\band\\s+(?=(?:(?:i|we|he|she|they)\\s+)?(?:${PAST_VERB}|${action}|need|want|should|must|please)\\b)`,
+    "i",
+  ));
   const phraseClause = clauses.find((clause) => sourcedPhrase(clause, phrase));
   if (phraseClause && !PAST_REPORT.test(phraseClause.trim()) &&
       normalized(phraseClause).split(" ").includes(action)) return false;
