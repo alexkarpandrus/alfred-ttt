@@ -26,7 +26,6 @@ const PAST_REPORT = new RegExp(
 );
 const REQUEST_WORD = "(?:not|never|can|should|could|would|will|must|might|may|need(?:s|ed)?|want(?:s|ed)?|please|whether|if|maybe|perhaps|unsure|uncertain)";
 const REQUEST_OR_NEGATION = new RegExp(`\\b${REQUEST_WORD}\\b`, "i");
-const UNCERTAIN_REPORT = /\b(?:i|we|they|he|she|you)\s+(?:thought|assum(?:e|ed)|believ(?:e|ed)|guess(?:ed)?|wonder(?:ed)?|suppos(?:e|ed))\b|\b(?:wasn['’]t|weren['’]t|not)\s+sure\b/i;
 const TASK_STOPWORDS = new Set(["a", "an", "the", "to", "in", "on", "for", "of", "with", "from", "about", "by", "at", "and"]);
 const IRREGULAR_PAST = new Map([
   ["send", "sent"], ["write", "wrote"], ["make", "made"], ["run", "ran"],
@@ -43,7 +42,7 @@ function reportsPastWork(note, phrase, title) {
     `${action}${action.endsWith("e") ? "d" : "ed"}`;
   // Split coordinated actions and requests, not nouns such as “research and development”.
   const clauses = note.split(new RegExp(
-    `[,;.!]|\\bbut\\b|\\band\\s+(?=(?:[a-z]+\\s+)?(?:[a-z]+['’](?:ll|d|t)\\s+|(?:${PAST_VERB}|${action}|${REQUEST_WORD}|plan(?:s|ned)?\\s+to)\\b))`,
+    `[,;.!]|\\bbut\\b|\\band\\s+(?=(?:(?:(?:next|this)\\s+(?:week|month|year|day)|tomorrow|today|tonight)\\s+)?(?:[a-z]+\\s+)?(?:[a-z]+['’](?:ll|d|t)\\s+|(?:${PAST_VERB}|${action}|${REQUEST_WORD}|plan(?:s|ned)?\\s+to)\\b))`,
     "i",
   ));
   const phraseClause = clauses.find((clause) => sourcedPhrase(clause, phrase));
@@ -51,10 +50,18 @@ function reportsPastWork(note, phrase, title) {
       normalized(phraseClause).split(" ").includes(action)) return false;
 
   return clauses.some((clause) => {
-    if (clause.includes("?") || UNCERTAIN_REPORT.test(clause) || REQUEST_OR_NEGATION.test(clause.replace(/\bMay\b/g, "")) || !PAST_REPORT.test(clause.trim())) return false;
+    if (clause.includes("?") || REQUEST_OR_NEGATION.test(clause.replace(/\bMay\b/g, "")) || !PAST_REPORT.test(clause.trim())) return false;
     const words = normalized(clause).split(" ");
     const verbIndex = words.indexOf(pastAction);
     if (verbIndex < 0) return false;
+    // An embedded claim about the task is not a report that its action happened.
+    const lead = words.slice(0, verbIndex).join(" ");
+    const active = /^(?:(?:yesterday|today)\s+)?(?:(?:i|we|they|he|she|it)(?:\s+(?:have|has|had|ve|s|just|already|finally|recently|previously|definitely|certainly))*|just|already|finally)?$/i.test(lead);
+    const passive = subject && new RegExp(
+      `^(?:the\\s+)?(?:${subject}|${subject[0]})\\s+(?:was|were|has|have|had)(?:\\s+(?:been|just|already|finally))*$`,
+      "i",
+    ).test(lead);
+    if (!active && !passive) return false;
     const objects = /\b(?:was|were)\b/i.test(clause)
       ? words : words.slice(verbIndex + 1);
     return (!subject || objects.includes(subject) || objects.includes(subject[0])) &&

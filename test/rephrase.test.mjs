@@ -149,6 +149,39 @@ test("parseIntent accepts other reported past work", () => {
   );
 });
 
+test("parseIntent accepts a direct passive completion report", () => {
+  for (const [input, title] of [
+    ["The report was sent", "Send report"],
+    ["W was added to codeowners", "Add Wojtech to codeowners"],
+  ]) {
+    assert.deepEqual(
+      parseIntent(
+        JSON.stringify({ state: "completed", statePhrase: input, completedTaskIds: ["task"] }),
+        input,
+        { tasks: [{ id: "task", title, state: "open" }] },
+      ),
+      { state: "completed", taskRelativeCompletion: true, completedTaskIds: ["task"] },
+      input,
+    );
+  }
+});
+
+test("parseIntent keeps completed work separate from a dated follow-up", () => {
+  const input = "I sent the report and next week I will tell the team";
+  assert.deepEqual(
+    parseIntent(
+      JSON.stringify({
+        state: "completed",
+        statePhrase: "I sent the report",
+        completedTaskIds: ["report"],
+      }),
+      input,
+      { tasks: [{ id: "report", title: "Send report", state: "open" }] },
+    ),
+    { state: "completed", taskRelativeCompletion: true, completedTaskIds: ["report"] },
+  );
+});
+
 test("parseIntent accepts an irregular past form of the task action", () => {
   const input = "I wrote report";
   assert.deepEqual(
@@ -187,6 +220,7 @@ test("parseIntent accepts completed work with adverbs and later request clauses"
   const context = { tasks: [{ id: "de34c681", title: "Add Wojtech to CODEOWNERS", state: "open" }] };
   for (const [input, statePhrase] of [
     ["I finally added w to codeowners", "added w to codeowners"],
+    ["I recently added w to codeowners", "added w to codeowners"],
     ["added w to codeowners, but need to tell the team", "added w to codeowners"],
     ["added w to codeowners and need to tell the team", "need to tell the team"],
     ["I've added w to codeowners", "added w to codeowners"],
@@ -266,6 +300,7 @@ test("parseIntent does not complete an uncertain past-work report", () => {
     "I thought the report was sent",
     "I wasn't sure the report was sent",
     "I wasn’t sure the report was sent",
+    "I hoped the report was sent",
   ]) {
     assert.deepEqual(
       parseIntent(
@@ -274,6 +309,20 @@ test("parseIntent does not complete an uncertain past-work report", () => {
           statePhrase: "the report was sent",
           completedTaskIds: ["report"],
         }),
+        input,
+        { tasks: [{ id: "report", title: "Send report", state: "open" }] },
+      ),
+      {},
+      input,
+    );
+  }
+});
+
+test("parseIntent rejects uncertain adverbs in a sourced action", () => {
+  for (const input of ["I probably sent the report", "I likely sent the report"]) {
+    assert.deepEqual(
+      parseIntent(
+        JSON.stringify({ state: "completed", statePhrase: input, completedTaskIds: ["report"] }),
         input,
         { tasks: [{ id: "report", title: "Send report", state: "open" }] },
       ),
