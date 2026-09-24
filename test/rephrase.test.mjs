@@ -76,8 +76,8 @@ test("parseIntent accepts an ambiguous task-relative completion", () => {
       "updated CODEOWNERS",
       {
         tasks: [
-          { id: "first", state: "open" },
-          { id: "second", state: "active" },
+          { id: "first", title: "Update CODEOWNERS", state: "open" },
+          { id: "second", title: "Update CODEOWNERS in Mamba", state: "active" },
           { id: "unrelated", state: "waiting" },
           { id: "canceled", state: "canceled" },
         ],
@@ -116,6 +116,7 @@ test("parseIntent rejects model-inferred completion for action requests", () => 
     "w should be added to codeowners",
     "w was not added to codeowners",
     "set w in codeowners",
+    "I expected to add w to codeowners",
   ]) {
     assert.deepEqual(
       parseIntent(
@@ -142,23 +143,25 @@ test("parseIntent accepts other reported past work", () => {
         completedTaskIds: ["report"],
       }),
       "I sent the report",
-      { tasks: [{ id: "report", state: "active" }] },
+      { tasks: [{ id: "report", title: "Send the report", state: "active" }] },
     ),
     { state: "completed", taskRelativeCompletion: true, completedTaskIds: ["report"] },
   );
 });
 
 test("parseIntent accepts completed work with adverbs and later request clauses", () => {
-  const context = { tasks: [{ id: "de34c681", state: "open" }] };
-  for (const input of [
-    "I finally added w to codeowners",
-    "added w to codeowners, but need to tell the team",
+  const context = { tasks: [{ id: "de34c681", title: "Add Wojtech to CODEOWNERS", state: "open" }] };
+  for (const [input, statePhrase] of [
+    ["I finally added w to codeowners", "added w to codeowners"],
+    ["added w to codeowners, but need to tell the team", "added w to codeowners"],
+    ["added w to codeowners and need to tell the team", "need to tell the team"],
+    ["I've added w to codeowners", "added w to codeowners"],
   ]) {
     assert.deepEqual(
       parseIntent(
         JSON.stringify({
           state: "completed",
-          statePhrase: "added w to codeowners",
+          statePhrase,
           completedTaskIds: ["de34c681"],
         }),
         input,
@@ -169,6 +172,27 @@ test("parseIntent accepts completed work with adverbs and later request clauses"
         taskRelativeCompletion: true,
         completedTaskIds: ["de34c681"],
       },
+      input,
+    );
+  }
+});
+
+test("parseIntent does not use past work from a different clause", () => {
+  for (const [input, statePhrase] of [
+    ["add w to codeowners; I sent the report", "I sent the report"],
+    ["add w to codeowners; I added the report to codeowners", "add w to codeowners"],
+  ]) {
+    assert.deepEqual(
+      parseIntent(
+        JSON.stringify({
+          state: "completed",
+          statePhrase,
+          completedTaskIds: ["de34c681"],
+        }),
+        input,
+        { tasks: [{ id: "de34c681", title: "Add Wojtech to CODEOWNERS", state: "open" }] },
+      ),
+      {},
       input,
     );
   }

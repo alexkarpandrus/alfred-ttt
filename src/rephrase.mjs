@@ -21,15 +21,31 @@ const COMPLETABLE_STATES = new Set(["open", "active", "waiting"]);
 // Model-selected completion targets still need evidence that the note reports past work.
 const PAST_VERB = "(?:[a-z]{2,}ed|sent|wrote|made|did|done|built|ran|went|gave|got|took)";
 const PAST_REPORT = new RegExp(
-  `^(?:(?:yesterday|today|i|we|they|he|she|it|just|already|finally|[a-z]+ly)\\s+)*${PAST_VERB}\\b|\\b(?:was|were|have|has|had)\\s+(?:(?:been|just|already|finally|[a-z]+ly)\\s+)*${PAST_VERB}\\b`,
+  `^(?:(?:yesterday|today|i|we|they|he|she|it|just|already|finally|[a-z]+ly)\\s+)*${PAST_VERB}\\b|\\b(?:was|were|have|has|had|(?:i|we|they)['’]ve|(?:he|she|it)['’]s)\\s+(?:(?:been|just|already|finally|[a-z]+ly)\\s+)*${PAST_VERB}\\b`,
   "i",
 );
 const REQUEST_OR_NEGATION = /\b(?:not|never|should|could|would|will|must|might|may|need(?:s|ed)?|want(?:s|ed)?|plan(?:s|ned)?|please)\b/i;
+const TASK_STOPWORDS = new Set(["a", "an", "the", "to", "in", "on", "for", "of", "with", "from", "about", "by", "at", "and"]);
 
-function reportsPastWork(note) {
-  return note
-    .split(/[,;.!?]|\bbut\b/i)
-    .some((clause) => !REQUEST_OR_NEGATION.test(clause) && PAST_REPORT.test(clause.trim()));
+function reportsPastWork(note, phrase, title) {
+  if (!sourcedPhrase(note, phrase)) return false;
+  const [action, ...details] = normalized(title).split(" ");
+  const subjects = details.filter((word) => !TASK_STOPWORDS.has(word));
+  const clauses = note.split(/[,;.!?]|\bbut\b|\band\s+(?=(?:need|want|should|must|please)\b)/i);
+  const hasAction = (words) => words.some((word, index) =>
+    word.startsWith(action.slice(0, 3)) && words[index - 1] !== "to");
+  const phraseClause = clauses.find((clause) => sourcedPhrase(clause, phrase));
+  if (phraseClause && !PAST_REPORT.test(phraseClause.trim()) &&
+      hasAction(normalized(phraseClause).split(" "))) return false;
+
+  return clauses.some((clause) => {
+    if (REQUEST_OR_NEGATION.test(clause) || !PAST_REPORT.test(clause.trim())) return false;
+    const words = normalized(clause).split(" ");
+    return hasAction(words) &&
+      (!subjects.length || subjects.some((subject) =>
+        words.some((word) => word === subject ||
+          (word.length >= 5 && subject.length >= 5 && word.slice(0, 5) === subject.slice(0, 5)))));
+  });
 }
 
 const PRIORITIES = new Set(["none", "low", "medium", "high", "urgent"]);
@@ -194,12 +210,10 @@ export function parseIntent(output, input, context = {}) {
         .map((id) => id.toLocaleLowerCase()),
     );
     const completedTasks = completableTasks.filter((task) =>
-      selectedIds.has(String(task.id).toLocaleLowerCase()),
+      selectedIds.has(String(task.id).toLocaleLowerCase()) &&
+      reportsPastWork(input, parsed.statePhrase, task.title),
     );
-    const taskRelativeCompletion =
-      reportsPastWork(input) &&
-      sourcedPhrase(input, parsed.statePhrase) &&
-      completedTasks.length > 0;
+    const taskRelativeCompletion = completedTasks.length > 0;
     const state = explicitState || (taskRelativeCompletion ? "completed" : undefined);
     const priority =
       PRIORITIES.has(parsed.priority) &&
