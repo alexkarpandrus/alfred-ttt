@@ -23,6 +23,32 @@ test("parseIntent accepts a guided title and lifecycle state", () => {
   );
 });
 
+test("parseIntent uses only supplied task IDs for a lookup and ignores IDs on captures", () => {
+  const context = {
+    tasks: [
+      { id: "throttle", title: "Check API rate limits", state: "open" },
+      { id: "invoice", title: "Review invoice export", state: "waiting" },
+    ],
+  };
+  const input = "where is the throttling work?";
+  const lookup = {
+    inputMode: "lookup",
+    lookupTaskIds: ["THROTTLE", "missing", 4, "throttle"],
+  };
+  assert.deepEqual(parseIntent(JSON.stringify(lookup), input, context), {
+    inputMode: "lookup",
+    lookupTaskIds: ["throttle"],
+  });
+  assert.deepEqual(
+    parseIntent(JSON.stringify({ ...lookup, inputMode: "capture" }), input, context),
+    { inputMode: "capture" },
+  );
+  assert.deepEqual(parseIntent(JSON.stringify({ inputMode: "lookup" }), input, context), {
+    inputMode: "lookup",
+    lookupTaskIds: [],
+  });
+});
+
 test("parseIntent rejects a state without an explicit lifecycle cue", () => {
   assert.deepEqual(
     parseIntent(

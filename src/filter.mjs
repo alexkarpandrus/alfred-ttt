@@ -6,6 +6,7 @@ import {
   buildSummaryItem,
   buildUpdatePrompt,
   listState,
+  matchingTitles,
   parseCommand,
   searchQuery,
 } from "./plan.mjs";
@@ -76,6 +77,13 @@ async function main() {
     search("label", focused, { semantic, limit: 8 }),
   ]);
   const items = uniqueCandidates(itemGroups);
+  if (!target) {
+    const matches = matchingTitles(items, text);
+    if (matches.length) {
+      output(buildListItems(matches));
+      return;
+    }
+  }
   const availableProjects = uniqueEntities([
     ...projects,
     ...items.map((item) => item.project).filter(Boolean),

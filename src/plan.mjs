@@ -1,3 +1,5 @@
+import { reportsProgress } from "./rephrase.mjs";
+
 const LABEL_RULES = [
   {
     label: "promised",
@@ -275,6 +277,12 @@ export function buildUpdatePrompt(candidate, target) {
   ];
 }
 
+export function matchingTitles(items, text) {
+  if (reportsProgress(text)) return [];
+  const query = text.toLocaleLowerCase();
+  return items.filter((item) => item.title?.toLocaleLowerCase().includes(query));
+}
+
 export function buildItems(
   input,
   { items = [], projects = [], intent = {}, allowCreate = true, target } = {},
@@ -289,11 +297,19 @@ export function buildItems(
       },
     ];
   }
-  if (allowCreate && !target && !/\s/.test(text)) {
-    const titleMatches = items.filter((item) =>
-      item.title?.toLocaleLowerCase().includes(text.toLocaleLowerCase()),
-    );
+  if (allowCreate && !target && !intent.taskRelativeCompletion) {
+    const titleMatches = matchingTitles(items, text);
     if (titleMatches.length) return buildListItems(titleMatches);
+    if (intent.inputMode === "lookup") {
+      const lookupIds = new Set(intent.lookupTaskIds || []);
+      const matches = items.filter((item) => lookupIds.has(item.displayId));
+      const firstWord = text.toLocaleLowerCase().split(/\s+/)[0];
+      // ponytail: Leading verbs are an approximate action cue; use explicit list search for shorthand lookups.
+      const actionRequest = matches.some((item) =>
+        item.title?.trim().split(/\s+/)[0].toLocaleLowerCase() === firstWord,
+      );
+      if (!actionRequest) return buildListItems(matches, matches.length ? "" : text);
+    }
   }
 
   const changes = labelChanges(text, intent.labels);
@@ -303,18 +319,29 @@ export function buildItems(
       ? intent.completedTaskIds.map((id) => id.toLocaleLowerCase())
       : [],
   );
+  const startedWork = allowCreate && intent.startedWork && intent.state === "active";
+  const progressIds = new Set(startedWork
+    ? (intent.updateTaskIds || []).map((id) => id.toLocaleLowerCase())
+    : []);
+  const scopedIds = completionIds.size ? completionIds : progressIds;
   const alternativeIntent = completionIds.size
     ? { ...intent, state: undefined }
     : intent;
-  const otherChanges = completionIds.size ? { addLabels: [], removeLabels: [] } : changes;
-  const otherIntent = completionIds.size ? {} : intent;
+  const otherChanges = completionIds.size || startedWork
+    ? { addLabels: [], removeLabels: [] }
+    : changes;
+  const otherIntent = completionIds.size || startedWork
+    ? {}
+    : allowCreate && intent.state === "completed"
+      ? { ...intent, state: undefined }
+      : intent;
   const candidates = items.slice(0, 5);
   const updates = candidates.map((candidate) =>
     updateItem(
       text,
       candidate,
-      completionIds.has(candidate.displayId?.toLocaleLowerCase()) ? changes : otherChanges,
-      completionIds.has(candidate.displayId?.toLocaleLowerCase()) ? intent : otherIntent,
+      scopedIds.has(candidate.displayId?.toLocaleLowerCase()) ? changes : otherChanges,
+      scopedIds.has(candidate.displayId?.toLocaleLowerCase()) ? intent : otherIntent,
     ),
   );
   if (!allowCreate)
@@ -339,10 +366,10 @@ export function buildItems(
       .slice(0, inferredProject ? 1 : 2)
       .map((project) => createItem(text, title, project, changes, alternativeIntent)),
   ];
-  if (!completionIds.size) return [...creates, ...updates];
+  if (!scopedIds.size) return [...creates, ...updates];
   return [
-    ...updates.filter((_, index) => completionIds.has(candidates[index].displayId?.toLocaleLowerCase())),
+    ...updates.filter((_, index) => scopedIds.has(candidates[index].displayId?.toLocaleLowerCase())),
     ...creates,
-    ...updates.filter((_, index) => !completionIds.has(candidates[index].displayId?.toLocaleLowerCase())),
+    ...updates.filter((_, index) => !scopedIds.has(candidates[index].displayId?.toLocaleLowerCase())),
   ];
 }

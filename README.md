@@ -4,7 +4,7 @@ Capture, find, and update tracker tasks from Alfred without maintaining a separa
 
 Type `ttt`, then write naturally. The workflow uses [`ttt`](https://github.com/alexkarpandrus/tickettrain) to show:
 
-- a new standalone task first, followed by matching tasks that can receive the text as an update;
+- read-only task matches for lookup phrases, or a new task first for action notes followed by matching tasks that can receive an update;
 - polished new-task titles, with the original note preserved in the description;
 - current tasks through `ttt list [filter]` and a live dashboard through `ttt summary`.
 
@@ -34,11 +34,24 @@ open dist/alfred-ttt.alfredworkflow
 
 Alfred's workflow configuration lets you change the `ttt` command and profile.
 
+## Model regression checks
+
+`npm test` runs the deterministic command and safety cases. To evaluate the on-device model with synthetic tasks after building the workflow:
+
+```sh
+unzip -oq dist/alfred-ttt.alfredworkflow bin/rephrase -d dist/model-eval
+TTT_MODEL_BINARY="$PWD/dist/model-eval/bin/rephrase" node --test scripts/evaluate-model.mjs
+```
+
+This optional check does not read or change tracker tasks.
+
 ## Browse and update tasks
 
 `ttt list` shows current tasks and their state, project, labels, priority, and due date. Add text after `list` to filter the results. Select a task with Tab, then type a free-form update after the generated `<task-id>:` prefix.
 
 The text after the prefix is stored unchanged as a comment. The local model infers explicit structured lifecycle, priority, and due-date changes. Alfred shows every inferred change before approval.
+
+Unprefixed notes such as `started indexing for Dana` offer ▶️ Active for related open, active, or waiting tasks before Create. Ambiguous matches remain separate choices; the selected update preserves the note as a comment and still needs approval. Every identifying word must match the title (one adjacent letter swap allowed); use Tab to target a task when wording differs.
 
 ## Live dashboard
 
@@ -48,7 +61,7 @@ Short aliases are `ttt l` for listing and `ttt l o/a/w/d/c` for open, active, wa
 
 ## On-device inference
 
-Apple's Foundation Models framework receives a bounded local context from matching tasks, projects, and labels. It rewrites new-task titles, reuses the existing project and label taxonomy, and infers explicit lifecycle, priority, and due-date changes. A past-tense report can also propose completing a matching open task; Alfred lists competing matches for explicit selection. New labels require an explicit `+label` token. Relative due dates use the current local date and timezone. Alfred shows every inferred mutation before approval. The raw note is preserved in the tracker description, and update comments remain exact. Disable Apple Intelligence in the workflow configuration to keep exact titles and rule-based labels.
+Apple's Foundation Models framework receives a bounded local context from matching tasks, projects, and labels. It distinguishes lookup phrases from action notes and selects plausible task IDs for read-only browsing; returned IDs are checked against that context. Without the model, literal title fragments still browse existing work. It rewrites new-task titles, reuses the existing project and label taxonomy, and infers explicit lifecycle, priority, and due-date changes. A past-tense report can also propose completing a matching open task; Alfred lists competing matches for explicit selection. New labels require an explicit `+label` token. Relative due dates use the current local date and timezone. Alfred shows every inferred mutation before approval. The raw note is preserved in the tracker description, and update comments remain exact. Disable Apple Intelligence in the workflow configuration to keep exact titles and rule-based labels.
 
 ## Optional semantic matching
 

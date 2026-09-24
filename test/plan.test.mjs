@@ -8,9 +8,11 @@ import {
   decodeRequest,
   labelChanges,
   listState,
+  matchingTitles,
   parseCommand,
   searchQuery,
 } from "../src/plan.mjs";
+import { parseIntent } from "../src/rephrase.mjs";
 
 test("labelChanges keeps classification labels separate from lifecycle state", () => {
   assert.deepEqual(
@@ -93,32 +95,125 @@ test("buildListItems displays task state and prepares a targeted update", () => 
   assert.equal(results[0].valid, false);
 });
 
-test("a matching task-name fragment browses existing work without a create action", () => {
-  const existing = { displayId: "de34c681", title: "Add Wojtech to CODEOWNERS", state: "open" };
-  const unrelated = { displayId: "other123", title: "Review patrol", description: "Ask Wojtech" };
-  const items = [existing, unrelated];
-  for (const query of ["woj", "WOJTECH"]) {
-    const results = buildItems(query, { items, intent: { title: existing.title } });
-    assert.deepEqual(results.map((result) => result.title), [existing.title]);
-    assert.equal(results[0].autocomplete, "de34c681: ");
-    assert.equal(results[0].valid, false);
-    assert.equal(results[0].arg, undefined);
+test("lookup browses matching work across names, phrases, and paraphrases", () => {
+  const items = [
+    { displayId: "receipts", title: "Archive quarterly receipts", state: "open" },
+    { displayId: "retry", title: "Fix billing retry failures", state: "active" },
+    { displayId: "interviews", title: "Review customer interviews", state: "waiting" },
+    { displayId: "release", title: "Prepare release notes", state: "canceled" },
+  ];
+  for (const [query, id] of [
+    ["receipts", "receipts"],
+    ["QUARTERLY RECEIPTS", "receipts"],
+    ["billing retry", "retry"],
+    ["release notes", "release"],
+    ["where are the user conversations?", "interviews"],
+  ]) {
+    const results = buildItems(query, {
+      items,
+      intent: { inputMode: "lookup", lookupTaskIds: [id] },
+    });
+    assert.equal(results.length, 1, query);
+    const [result] = results;
+    assert.equal(result.title, items.find((item) => item.displayId === id).title, query);
+    assert.equal(result.autocomplete, `${id}: `, query);
+    assert.equal(result.valid, false, query);
+    assert.equal(result.arg, undefined, query);
   }
-  assert.equal(buildItems("unknown", { items })[0].title, "🆕 Create: unknown");
-  assert.equal(buildItems("add w to codeowners", { items })[0].title, "🆕 Create: add w to codeowners");
+  const results = buildItems("release notes", {
+    items,
+    intent: { inputMode: "lookup", lookupTaskIds: ["receipts"] },
+  });
+  assert.deepEqual(results.map((result) => result.title), ["Prepare release notes"]);
+  const multiple = buildItems("customer interviews", {
+    items: [items[2], { displayId: "schedule", title: "Schedule customer interviews", state: "canceled" }],
+    intent: { inputMode: "lookup", lookupTaskIds: ["receipts"] },
+  });
+  assert.deepEqual(multiple.map((result) => result.title), [
+    "Review customer interviews", "Schedule customer interviews",
+  ]);
+  assert.ok(multiple.every((result) => result.arg === undefined));
 });
 
-test("a state-name fragment still browses a title match in another state", () => {
-  for (const [query, task] of [
-    ["w", { displayId: "de34c681", title: "Add Wojtech to CODEOWNERS", state: "open" }],
-    ["open", { displayId: "other123", title: "Open release notes", state: "waiting" }],
-  ]) {
-    const [result] = buildItems(query, { items: [task] });
-    assert.equal(result.title, task.title);
-    assert.equal(result.autocomplete, `${task.displayId}: `);
-    assert.equal(result.valid, false);
-    assert.equal(result.arg, undefined);
+test("fast title lookup uses full phrases and ignores unrelated descriptions", () => {
+  const items = [
+    { title: "Archive quarterly receipts" },
+    { title: "Review invoices", description: "Quarterly receipts" },
+  ];
+  for (const query of ["receipts", "QUARTERLY RECEIPTS"]) {
+    assert.deepEqual(matchingTitles(items, query), [items[0]]);
   }
+  assert.deepEqual(matchingTitles(items, "invoice"), [items[1]]);
+  assert.deepEqual(matchingTitles(items, "unknown"), []);
+});
+
+test("action notes keep creation first, but title phrases browse despite model errors", () => {
+  const items = [{ displayId: "release", title: "Prepare release notes", state: "open" }];
+  for (const query of ["please prepare release notes", "create another release notes task", "I prepared release notes"]) {
+    const [result] = buildItems(query, { items, intent: { inputMode: "capture" } });
+    assert.match(result.title, /^🆕 Create/, query);
+  }
+  const [phrase] = buildItems("release notes", {
+    items, intent: { inputMode: "capture" },
+  });
+  assert.equal(phrase.autocomplete, "release: ");
+  assert.equal(phrase.arg, undefined);
+  const [exact] = buildItems("PREPARE RELEASE NOTES", {
+    items, intent: { inputMode: "capture" },
+  });
+  assert.equal(exact.autocomplete, "release: ");
+  assert.equal(exact.arg, undefined);
+});
+
+test("a task-action request remains capture when the model mistakes it for lookup", () => {
+  for (const [query, title] of [
+    ["archive q receipts", "Archive quarterly receipts"],
+    ["fix billing failures", "Fix billing retry failures"],
+    ["review user interviews", "Review customer interviews"],
+    ["add w to codeowners", "Add Wanda to CODEOWNERS"],
+  ]) {
+    const [result] = buildItems(query, {
+      items: [{ displayId: "existing", title, state: "open" }],
+      intent: { inputMode: "lookup", lookupTaskIds: ["existing"] },
+    });
+    assert.match(result.title, /^🆕 Create/, query);
+  }
+});
+
+test("without a model, title phrases browse existing work regardless of word count or state aliases", () => {
+  const items = [
+    { displayId: "receipts", title: "Archive quarterly receipts", state: "open" },
+    { displayId: "release", title: "Open release notes", state: "waiting" },
+  ];
+  for (const [query, id] of [
+    ["receipt", "receipts"],
+    ["QUARTERLY RECEIPTS", "receipts"],
+    ["release notes", "release"],
+    ["open", "release"],
+  ]) {
+    const [result] = buildItems(query, { items });
+    assert.equal(result.autocomplete, `${id}: `, query);
+    assert.equal(result.arg, undefined, query);
+  }
+  assert.equal(buildItems("unknown", { items })[0].title, "🆕 Create: unknown");
+  assert.equal(buildItems("archive new receipts", { items })[0].title, "🆕 Create: archive new receipts");
+});
+
+test("lookup with no matching candidates stays read-only; a targeted note remains actionable", () => {
+  const items = [{ displayId: "invoice", title: "Review invoice export", state: "open" }];
+  const [missing] = buildItems("where is the contract?", {
+    items,
+    intent: { inputMode: "lookup", lookupTaskIds: [] },
+  });
+  assert.match(missing.title, /^No tasks match/);
+  assert.equal(missing.arg, undefined);
+  const [targeted] = buildItems("done", {
+    items,
+    target: "invoice",
+    allowCreate: false,
+    intent: { inputMode: "lookup", lookupTaskIds: ["invoice"], state: "completed" },
+  });
+  assert.equal(decodeRequest(targeted.arg).state, "completed");
 });
 
 test("buildItems preserves the comment and applies an inferred state", () => {
@@ -266,6 +361,49 @@ test("task-relative completion keeps unrelated updates comment-only", () => {
   assert.deepEqual(decodeRequest(results.at(-1).arg), {
     action: "update_item", item: "other", comment: input,
   });
+});
+
+test("verified completion wins even when the model calls the note a lookup", () => {
+  const input = "I sent the report to Alice";
+  const items = [
+    { displayId: "report", title: "Send report to Alice", state: "open" },
+    { displayId: "other", title: "Review finances", state: "waiting" },
+  ];
+  const intent = parseIntent(
+    JSON.stringify({
+      inputMode: "lookup", lookupTaskIds: ["report"],
+      state: "completed", statePhrase: input, completedTaskIds: ["report"],
+    }),
+    input,
+    { tasks: items.map(({ displayId, title, state }) => ({ id: displayId, title, state })) },
+  );
+  assert.equal(intent.taskRelativeCompletion, true);
+  const results = buildItems(input, { items, intent });
+  assert.equal(results[0].title, "✅ Complete: Send report to Alice");
+  assert.equal(decodeRequest(results[0].arg).state, "completed");
+  assert.equal(decodeRequest(results[0].arg).comment, input);
+  assert.equal(results.at(-1).title, "💬 Comment: Review finances");
+});
+
+test("unverified untargeted completion never proposes completing another task", () => {
+  const input = "I finished sending the report";
+  const items = [
+    { displayId: "report", title: "Send report", state: "open" },
+    { displayId: "unrelated", title: "Review finances", state: "canceled" },
+  ];
+  const intent = parseIntent(
+    JSON.stringify({ state: "completed", statePhrase: input, completedTaskIds: ["report"] }),
+    input,
+    { tasks: items.map(({ displayId, title, state }) => ({ id: displayId, title, state })) },
+  );
+  assert.deepEqual(intent, { state: "completed" });
+  const updates = buildItems(input, { items, intent })
+    .filter((item) => decodeRequest(item.arg).action === "update_item");
+  assert.deepEqual(updates.map((item) => item.title), [
+    "💬 Comment: Send report", "💬 Comment: Review finances",
+  ]);
+  assert.ok(updates.every((item) => decodeRequest(item.arg).state === undefined));
+  assert.ok(updates.every((item) => decodeRequest(item.arg).comment === input));
 });
 
 test("buildItems asks the user to choose an ambiguous completion target", () => {

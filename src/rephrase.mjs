@@ -24,9 +24,16 @@ const PAST_REPORT = new RegExp(
   `^(?:(?:yesterday|today|i|we|they|he|she|it|just|already|finally|[a-z]+ly)\\s+)*${PAST_VERB}\\b|\\b(?:was|were|have|has|had|(?:i|we|they)['’]ve|(?:he|she|it)['’]s)\\s+(?:(?:been|just|already|finally|[a-z]+ly)\\s+)*${PAST_VERB}\\b`,
   "i",
 );
-const REQUEST_WORD = "(?:not|never|can|should|could|would|will|must|might|may|need(?:s|ed)?|want(?:s|ed)?|please|whether|if|maybe|perhaps|unsure|uncertain)";
+const REQUEST_WORD = "(?:not|never|[a-z]+n['’]t|can|should|could|would|will|must|might|may|need(?:s|ed)?|want(?:s|ed)?|please|whether|if|maybe|perhaps|unsure|uncertain)";
 const REQUEST_OR_NEGATION = new RegExp(`\\b${REQUEST_WORD}\\b`, "i");
+// ponytail: Only English first-person progress cues override bad lookups; extend from measured misses.
+const FIRST_PERSON_UPDATE = /^\s*(?:i|we)\s+(?:might|may|could|did|will|have|had|was|were|sent|wrote|made|built|ran|[a-z]+ed|[a-z]+n['’]t)\b/i;
+const STARTED_REPORT = /^(?:(?:(?:i|we)\s+(?:(?:have|had)\s+)?|(?:just|already)\s+)?(?:started|began)|(?:i(?:['’]m|\s+am)|we(?:['’]re|\s+are))\s+working on)\b/i;
+export function reportsProgress(input) {
+  return STARTED_REPORT.test(input) || FIRST_PERSON_UPDATE.test(input) || PAST_REPORT.test(input);
+}
 const TASK_STOPWORDS = new Set(["a", "an", "the", "to", "in", "on", "for", "of", "with", "from", "about", "by", "at", "and"]);
+const PROGRESS_STOPWORDS = new Set([...TASK_STOPWORDS, "i", "we", "m", "re", "am", "are", "have", "had", "just", "already", "started", "began", "working", "work", "project", "feature", "task"]);
 const IRREGULAR_PAST = new Map([
   ["send", "sent"], ["write", "wrote"], ["make", "made"], ["run", "ran"],
   ["go", "went"], ["give", "gave"], ["get", "got"], ["take", "took"],
@@ -113,6 +120,23 @@ function normalized(value) {
     .toLocaleLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
+}
+
+function sameOrAdjacentSwap(word, candidate) {
+  if (word === candidate) return true;
+  if (word.length < 5 || word.length !== candidate.length) return false;
+  const index = [...word].findIndex((letter, position) => letter !== candidate[position]);
+  return index < word.length - 1 && word[index] === candidate[index + 1] &&
+    word[index + 1] === candidate[index] && word.slice(index + 2) === candidate.slice(index + 2);
+}
+
+function progressTaskIds(input, tasks) {
+  // ponytail: Exact title words or one adjacent typo; use targeted updates for paraphrases without shared words.
+  const words = normalized(input).split(" ").filter((word) => word.length > 2 && !PROGRESS_STOPWORDS.has(word));
+  if (!words.length) return [];
+  return tasks.filter((task) => COMPLETABLE_STATES.has(task.state) &&
+    words.every((word) => normalized(task.title).split(" ").some((titleWord) =>
+      sameOrAdjacentSwap(word, titleWord)))).map((task) => task.id);
 }
 
 function canonicalName(value, names) {
@@ -222,9 +246,13 @@ function stripMetadata(title, phrases) {
 export function parseIntent(output, input, context = {}) {
   try {
     const parsed = JSON.parse(output);
-    const explicitState = STATE_CUES[parsed.state]?.test(input)
-      ? parsed.state
-      : undefined;
+    const startedWork = STARTED_REPORT.test(input) && !/\?\s*$/.test(input);
+    const requestedChange = REQUEST_OR_NEGATION.test(input.replace(/\bMay\b/g, ""));
+    const explicitState = STATE_CUES[parsed.state]?.test(input) &&
+      (parsed.state !== "completed" ||
+        (!requestedChange && !/\b(?:tomorrow|later|next\s+(?:week|month|year))\b/i.test(input))) &&
+      (parsed.state !== "active" || startedWork || /^(?:start|begin|in progress)$/i.test(input.trim()))
+      ? parsed.state : undefined;
     const completableTasks = (context.tasks || []).filter((task) =>
       COMPLETABLE_STATES.has(task.state),
     );
@@ -238,7 +266,8 @@ export function parseIntent(output, input, context = {}) {
       reportsPastWork(input, parsed.statePhrase, task.title),
     );
     const taskRelativeCompletion = completedTasks.length > 0;
-    const state = explicitState || (taskRelativeCompletion ? "completed" : undefined);
+    const state = startedWork && explicitState === "completed" && !taskRelativeCompletion
+      ? "active" : explicitState || (taskRelativeCompletion ? "completed" : startedWork ? "active" : undefined);
     const priority =
       PRIORITIES.has(parsed.priority) &&
       sourcedPhrase(input, parsed.priorityPhrase) &&
@@ -280,10 +309,32 @@ export function parseIntent(output, input, context = {}) {
     }
 
     const intent = {};
+    const inputMode = parsed.inputMode === "lookup" &&
+      (FIRST_PERSON_UPDATE.test(input) || startedWork) && !/\?\s*$/.test(input)
+      ? "capture" : parsed.inputMode;
+    if (inputMode === "lookup" || inputMode === "capture") {
+      intent.inputMode = inputMode;
+    }
+    if (inputMode === "lookup") {
+      const lookupIds = new Set(
+        (Array.isArray(parsed.lookupTaskIds) ? parsed.lookupTaskIds : [])
+          .filter((id) => typeof id === "string")
+          .map((id) => id.toLocaleLowerCase()),
+      );
+      intent.lookupTaskIds = (context.tasks || [])
+        .filter((task) => lookupIds.has(String(task.id).toLocaleLowerCase()))
+        .map((task) => task.id);
+    }
     if (title && title !== input.trim()) intent.title = title;
     if (state) intent.state = state;
     if (taskRelativeCompletion) intent.taskRelativeCompletion = true;
     if (taskRelativeCompletion) intent.completedTaskIds = completedTasks.map((task) => task.id);
+    if (startedWork && state === "active") {
+      intent.startedWork = true;
+      const progressInput = stripMetadata(input, [priority && parsed.priorityPhrase, dueAt && parsed.duePhrase])
+        .replace(/\+[\p{L}\p{N}._-]+/gu, "");
+      intent.updateTaskIds = progressTaskIds(progressInput, context.tasks || []);
+    }
     if (priority) intent.priority = priority;
     if (dueAt) intent.dueAt = dueAt;
     if (project) intent.project = project;
