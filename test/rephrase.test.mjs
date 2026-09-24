@@ -240,6 +240,28 @@ test("parseIntent does not use past work from a different clause", () => {
   }
 });
 
+test("parseIntent does not complete an uncertain past-work report", () => {
+  for (const input of [
+    "I checked whether the report was sent",
+    "I checked if the report was sent",
+    "Maybe the report was sent",
+    "The report was sent?",
+  ]) {
+    assert.deepEqual(
+      parseIntent(
+        JSON.stringify({
+          state: "completed",
+          statePhrase: "the report was sent",
+          completedTaskIds: ["report"],
+        }),
+        input,
+        { tasks: [{ id: "report", title: "Send report", state: "open" }] },
+      ),
+      {},
+      input,
+    );
+  }
+});
 
 test("buildInferenceContext exposes bounded task taxonomy", () => {
   assert.deepEqual(
