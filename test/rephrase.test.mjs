@@ -148,6 +148,32 @@ test("parseIntent accepts other reported past work", () => {
   );
 });
 
+test("parseIntent accepts completed work with adverbs and later request clauses", () => {
+  const context = { tasks: [{ id: "de34c681", state: "open" }] };
+  for (const input of [
+    "I finally added w to codeowners",
+    "added w to codeowners, but need to tell the team",
+  ]) {
+    assert.deepEqual(
+      parseIntent(
+        JSON.stringify({
+          state: "completed",
+          statePhrase: "added w to codeowners",
+          completedTaskIds: ["de34c681"],
+        }),
+        input,
+        context,
+      ),
+      {
+        state: "completed",
+        taskRelativeCompletion: true,
+        completedTaskIds: ["de34c681"],
+      },
+      input,
+    );
+  }
+});
+
 
 test("buildInferenceContext exposes bounded task taxonomy", () => {
   assert.deepEqual(

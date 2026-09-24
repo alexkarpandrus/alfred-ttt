@@ -19,10 +19,17 @@ const STATE_CUES = {
 const COMPLETABLE_STATES = new Set(["open", "active", "waiting"]);
 
 // Model-selected completion targets still need evidence that the note reports past work.
+const PAST_VERB = "(?:[a-z]{2,}ed|sent|wrote|made|did|done|built|ran|went|gave|got|took)";
+const PAST_REPORT = new RegExp(
+  `^(?:(?:yesterday|today|i|we|they|he|she|it|just|already|finally|[a-z]+ly)\\s+)*${PAST_VERB}\\b|\\b(?:was|were|have|has|had)\\s+(?:(?:been|just|already|finally|[a-z]+ly)\\s+)*${PAST_VERB}\\b`,
+  "i",
+);
+const REQUEST_OR_NEGATION = /\b(?:not|never|should|could|would|will|must|might|may|need(?:s|ed)?|want(?:s|ed)?|plan(?:s|ned)?|please)\b/i;
+
 function reportsPastWork(note) {
-  if (/\b(?:not|never|should|could|would|will|must|might|may|need(?:s|ed)?|want(?:s|ed)?|plan(?:s|ned)?|please)\b/i.test(note)) return false;
-  const pastVerb = "(?:[a-z]{2,}ed|sent|wrote|made|did|done|built|ran|went|gave|got|took)";
-  return new RegExp(`^(?:(?:i|we|they|he|she|just|already)\\s+){0,2}${pastVerb}\\b|\\b(?:was|were|have|has|had)\\s+(?:just\\s+|already\\s+)?${pastVerb}\\b`, "i").test(note);
+  return note
+    .split(/[,;.!?]|\bbut\b/i)
+    .some((clause) => !REQUEST_OR_NEGATION.test(clause) && PAST_REPORT.test(clause.trim()));
 }
 
 const PRIORITIES = new Set(["none", "low", "medium", "high", "urgent"]);
