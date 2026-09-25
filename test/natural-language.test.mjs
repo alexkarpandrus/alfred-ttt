@@ -25,13 +25,14 @@ const completionCases = [
   ["I plan to send the report to Alice", "Send report to Alice", false],
   ["I sent the report to Alice?", "Send report to Alice", false],
   ["I fixed the billing retries", "Fix billing retries", true],
-  ["I resolved the billing retries", "Fix billing retries", false],
-  ["I archived invoices in Mamba", "Archive invoices in Mamba", true],
+  ["I resolved the billing retries", "Fix billing retries", true],
+  ["Answered Maryna", "Respond to Maryna", true],
+  ["I replied to Maryna", "Respond to Maryna", true],
   ["I archived invoices in Anaconda", "Archive invoices in Mamba", false],
   ["I added Alex to CODEOWNERS", "Add Sam to CODEOWNERS", false],
 ];
 
-test("past-work notes complete only the task whose action definitely happened", () => {
+test("past-work notes complete the task whose action the note reports", () => {
   for (const [note, title, shouldComplete] of completionCases) {
     const tasks = [
       { id: "selected", title, state: "open" },
@@ -302,6 +303,31 @@ test("explicit capture requests keep Create when the model guesses lookup", () =
   assert.equal(parseIntent(JSON.stringify({ inputMode: "lookup" }), "respond to Maryna?").inputMode, "lookup");
   const existing = { title: "Respond to Maryna" };
   assert.deepEqual(matchingTitles([existing], "Maryna"), [existing]);
+});
+
+test("a progress report stays actionable on the task the model resolved", () => {
+  const items = [
+    { displayId: "maryna", title: "Respond to Maryna", state: "open" },
+    { displayId: "patrol", title: "Raise deprecate request for patrol", state: "open" },
+  ];
+  for (const note of ["answered maryna", "replied to maryna"]) {
+    const results = buildItems(note, {
+      items,
+      intent: { inputMode: "lookup", lookupTaskIds: ["maryna"], title: "Respond to Maryna" },
+    });
+    assert.ok(results.every((result) => result.arg), note);
+    assert.deepEqual(decodeRequest(results[0].arg), {
+      action: "update_item", item: "maryna", comment: note,
+    }, note);
+  }
+  for (const question of ["did i answer maryna?", "answered maryna?"]) {
+    const [only] = buildItems(question, {
+      items,
+      intent: { inputMode: "lookup", lookupTaskIds: ["maryna"] },
+    });
+    assert.equal(only.arg, undefined, question);
+    assert.equal(only.autocomplete, "maryna: ", question);
+  }
 });
 
 test("targeted state commands preserve the note and never create a task", () => {

@@ -1,4 +1,4 @@
-import { isCaptureRequest, reportsProgress } from "./rephrase.mjs";
+import { isCaptureRequest, reportsDoneWork, reportsProgress } from "./rephrase.mjs";
 
 const LABEL_RULES = [
   {
@@ -297,10 +297,12 @@ export function buildItems(
       },
     ];
   }
+  const doneWork = reportsDoneWork(text);
   if (allowCreate && !target && !intent.taskRelativeCompletion) {
     const titleMatches = matchingTitles(items, text);
     if (titleMatches.length) return buildListItems(titleMatches);
-    if (intent.inputMode === "lookup") {
+    // ponytail: Read-only browsing must not swallow a progress report; extend cues from measured misses.
+    if (intent.inputMode === "lookup" && !doneWork) {
       const lookupIds = new Set(intent.lookupTaskIds || []);
       const matches = items.filter((item) => lookupIds.has(item.displayId));
       const firstWord = text.toLocaleLowerCase().split(/\s+/)[0];
@@ -320,9 +322,13 @@ export function buildItems(
       : [],
   );
   const startedWork = allowCreate && intent.startedWork && intent.state === "active";
-  const progressIds = new Set(startedWork
-    ? (intent.updateTaskIds || []).map((id) => id.toLocaleLowerCase())
-    : []);
+  // A report of work done stays on the task the model resolved, not on an unrelated candidate.
+  const progressTargets = startedWork
+    ? intent.updateTaskIds
+    : doneWork
+      ? intent.lookupTaskIds
+      : undefined;
+  const progressIds = new Set((progressTargets || []).map((id) => id.toLocaleLowerCase()));
   const scopedIds = completionIds.size ? completionIds : progressIds;
   const alternativeIntent = completionIds.size
     ? { ...intent, state: undefined }

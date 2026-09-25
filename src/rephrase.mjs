@@ -33,6 +33,13 @@ export function reportsProgress(input) {
   return STARTED_REPORT.test(input) || FIRST_PERSON_UPDATE.test(input) || PAST_REPORT.test(input);
 }
 
+// A confident past-work report describes work done, so it must stay actionable; a question or an
+// uncertain claim does not, and stays a read-only lookup.
+export function reportsDoneWork(input) {
+  return reportsProgress(input) && !/\?\s*$/.test(input) &&
+    !REQUEST_OR_NEGATION.test(input.replace(/\bMay\b/g, ""));
+}
+
 export function isCaptureRequest(input) {
   return /^\s*(?:please\s+)?(?:(?:respond|reply)\s+to|(?:create|add)\s+(?:(?:a|the)\s+)?(?:new\s+)?task)\b/i.test(input) && !/\?\s*$/.test(input);
 }
@@ -66,7 +73,14 @@ function reportsPastWork(note, phrase, title) {
     if (clause.includes("?") || REQUEST_OR_NEGATION.test(clause.replace(/\bMay\b/g, "")) || !PAST_REPORT.test(clause.trim())) return false;
     const words = normalized(clause).split(" ");
     const verbIndex = words.indexOf(pastAction);
-    if (verbIndex < 0) return false;
+    if (verbIndex < 0) {
+      // The model paraphrases the task's verb ("answered" for "respond"). The note still reports
+      // this task's action when it names every distinctive word of the title, unless it reports
+      // starting the work rather than finishing it.
+      if (STARTED_REPORT.test(clause.trim())) return false;
+      const nouns = details.filter((word) => !TASK_STOPWORDS.has(word));
+      return nouns.length > 0 && nouns.every((noun) => words.includes(noun));
+    }
     // An embedded claim about the task is not a report that its action happened.
     const lead = words.slice(0, verbIndex).join(" ");
     const active = /^(?:(?:yesterday|today)\s+)?(?:(?:i|we|they|he|she|it)(?:\s+(?:have|has|had|ve|s|just|already|finally|recently|previously|definitely|certainly))*|just|already|finally)?$/i.test(lead);

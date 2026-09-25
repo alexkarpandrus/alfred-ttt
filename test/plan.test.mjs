@@ -387,7 +387,7 @@ test("verified completion wins even when the model calls the note a lookup", () 
   assert.equal(results.at(-1).title, "💬 Comment: Review finances");
 });
 
-test("unverified untargeted completion never proposes completing another task", () => {
+test("an object-matching completion completes only its task and leaves others as comments", () => {
   const input = "I finished sending the report";
   const items = [
     { displayId: "report", title: "Send report", state: "open" },
@@ -398,13 +398,14 @@ test("unverified untargeted completion never proposes completing another task", 
     input,
     { tasks: items.map(({ displayId, title, state }) => ({ id: displayId, title, state })) },
   );
-  assert.deepEqual(intent, { state: "completed" });
+  assert.deepEqual(intent, { state: "completed", taskRelativeCompletion: true, completedTaskIds: ["report"] });
   const updates = buildItems(input, { items, intent })
     .filter((item) => decodeRequest(item.arg).action === "update_item");
   assert.deepEqual(updates.map((item) => item.title), [
-    "💬 Comment: Send report", "💬 Comment: Review finances",
+    "✅ Complete: Send report", "💬 Comment: Review finances",
   ]);
-  assert.ok(updates.every((item) => decodeRequest(item.arg).state === undefined));
+  assert.equal(decodeRequest(updates[0].arg).state, "completed");
+  assert.equal(decodeRequest(updates[1].arg).state, undefined);
   assert.ok(updates.every((item) => decodeRequest(item.arg).comment === input));
 });
 
