@@ -28,6 +28,11 @@ const completionCases = [
   ["I resolved the billing retries", "Fix billing retries", true],
   ["Answered Maryna", "Respond to Maryna", true],
   ["I replied to Maryna", "Respond to Maryna", true],
+  ["I definitely answered Maryna", "Respond to Maryna", true],
+  ["I probably answered Maryna", "Respond to Maryna", false],
+  ["I likely replied to Maryna", "Respond to Maryna", false],
+  ["I possibly answered Maryna", "Respond to Maryna", false],
+  ["I have heard Maryna answered the patrol request", "Answer the patrol request", false],
   ["I archived invoices in Anaconda", "Archive invoices in Mamba", false],
   ["I added Alex to CODEOWNERS", "Add Sam to CODEOWNERS", false],
 ];

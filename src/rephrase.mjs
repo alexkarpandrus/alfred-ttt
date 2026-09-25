@@ -20,6 +20,10 @@ const COMPLETABLE_STATES = new Set(["open", "active", "waiting"]);
 
 // Model-selected completion targets still need evidence that the note reports past work.
 const PAST_VERB = "(?:[a-z]{2,}ed|sent|wrote|made|did|done|built|ran|went|gave|got|took)";
+const PAST_VERB_WORD = new RegExp(`^${PAST_VERB}$`);
+// Only first-person or plain leads report that work happened; a hedge such as "probably" does not.
+const REPORT_LEAD =
+  /^(?:(?:yesterday|today)\s+)?(?:(?:i|we|they|he|she|it)(?:\s+(?:have|has|had|ve|s|just|already|finally|recently|previously|definitely|certainly))*|just|already|finally)?$/i;
 const PAST_REPORT = new RegExp(
   `^(?:(?:yesterday|today|i|we|they|he|she|it|just|already|finally|[a-z]+ly)\\s+)*${PAST_VERB}\\b|\\b(?:was|were|have|has|had|(?:i|we|they)['’]ve|(?:he|she|it)['’]s)\\s+(?:(?:been|just|already|finally|[a-z]+ly)\\s+)*${PAST_VERB}\\b`,
   "i",
@@ -73,17 +77,18 @@ function reportsPastWork(note, phrase, title) {
     if (clause.includes("?") || REQUEST_OR_NEGATION.test(clause.replace(/\bMay\b/g, "")) || !PAST_REPORT.test(clause.trim())) return false;
     const words = normalized(clause).split(" ");
     const verbIndex = words.indexOf(pastAction);
+    const reportedVerbIndex = words.findIndex((word) => PAST_VERB_WORD.test(word));
+    // An embedded claim about the task is not a report that its action happened.
+    const lead = words.slice(0, verbIndex < 0 ? reportedVerbIndex : verbIndex).join(" ");
     if (verbIndex < 0) {
       // The model paraphrases the task's verb ("answered" for "respond"). The note still reports
       // this task's action when it names every distinctive word of the title, unless it reports
-      // starting the work rather than finishing it.
-      if (STARTED_REPORT.test(clause.trim())) return false;
+      // starting the work or hedges that it happened.
+      if (reportedVerbIndex < 0 || !REPORT_LEAD.test(lead) || STARTED_REPORT.test(clause.trim())) return false;
       const nouns = details.filter((word) => !TASK_STOPWORDS.has(word));
       return nouns.length > 0 && nouns.every((noun) => words.includes(noun));
     }
-    // An embedded claim about the task is not a report that its action happened.
-    const lead = words.slice(0, verbIndex).join(" ");
-    const active = /^(?:(?:yesterday|today)\s+)?(?:(?:i|we|they|he|she|it)(?:\s+(?:have|has|had|ve|s|just|already|finally|recently|previously|definitely|certainly))*|just|already|finally)?$/i.test(lead);
+    const active = REPORT_LEAD.test(lead);
     const passive = subject && new RegExp(
       `^(?:the\\s+)?(?:${subject}|${subject[0]})\\s+(?:was|were|has|have|had)(?:\\s+(?:been|just|already|finally))*$`,
       "i",
