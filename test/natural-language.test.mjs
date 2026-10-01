@@ -291,7 +291,8 @@ test("lookup phrases browse; action notes still offer creation", () => {
 test("explicit capture requests keep Create when the model guesses lookup", () => {
   const unrelated = { displayId: "unrelated", title: "Raise deprecate request for patrol", state: "open" };
   const notes = ["respond to Maryna", "reply to Maryna", "please respond to Maryna",
-    "create a task to respond to Maryna", "add a new task to respond to Maryna"];
+    "create a task to respond to Maryna", "add a new task to respond to Maryna",
+    "answer Elliott about APO sheet"];
   for (const note of notes) {
     const existing = { displayId: "matching", title: note, state: "open" };
     const tasks = [unrelated, existing].map(({ displayId, title, state }) => ({ id: displayId, title, state }));
@@ -308,6 +309,34 @@ test("explicit capture requests keep Create when the model guesses lookup", () =
   assert.equal(parseIntent(JSON.stringify({ inputMode: "lookup" }), "respond to Maryna?").inputMode, "lookup");
   const existing = { title: "Respond to Maryna" };
   assert.deepEqual(matchingTitles([existing], "Maryna"), [existing]);
+});
+
+test("answer requests create under their own title despite unrelated model matches", () => {
+  const note = "answer elliott about apo sheet";
+  const unrelated = { displayId: "unrelated", title: "Raise deprecate request for patrol", state: "open" };
+  for (const inferredTitle of ["Answer Elliott about APO sheet", unrelated.title,
+    "Answer Elliott about a different sheet"]) {
+    const intent = parseIntent(JSON.stringify({ inputMode: "lookup", lookupTaskIds: [unrelated.displayId],
+      title: inferredTitle }), note, { tasks: [{ id: unrelated.displayId, title: unrelated.title, state: unrelated.state }] });
+    const [first] = buildItems(note, { items: [unrelated], intent });
+    assert.equal(intent.inputMode, "capture");
+    assert.deepEqual(decodeRequest(first.arg), {
+      action: "create_item",
+      title: inferredTitle === "Answer Elliott about APO sheet" ? inferredTitle : note,
+      comment: note,
+    });
+  }
+  const lookup = parseIntent(JSON.stringify({ inputMode: "lookup", lookupTaskIds: [unrelated.displayId] }),
+    `${note}?`, { tasks: [{ id: unrelated.displayId, title: unrelated.title }] });
+  assert.equal(lookup.inputMode, "lookup");
+  assert.equal(buildItems(`${note}?`, { items: [unrelated], intent: lookup })[0].arg, undefined);
+});
+
+test("create requests retain the first identifying word when checking model titles", () => {
+  const note = "create a task to answer Elliott about APO sheet";
+  const intent = parseIntent(JSON.stringify({ inputMode: "capture",
+    title: "Answer Maryna about APO sheet" }), note);
+  assert.equal(decodeRequest(buildItems(note, { intent })[0].arg).title, note);
 });
 
 test("a progress report stays actionable on the task the model resolved", () => {

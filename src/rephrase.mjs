@@ -45,7 +45,7 @@ export function reportsDoneWork(input) {
 }
 
 export function isCaptureRequest(input) {
-  return /^\s*(?:please\s+)?(?:(?:respond|reply)\s+to|(?:create|add)\s+(?:(?:a|the)\s+)?(?:new\s+)?task)\b/i.test(input) && !/\?\s*$/.test(input);
+  return /^\s*(?:please\s+)?(?:(?:(?:respond|reply)\s+to|answer)\s+(?=\S)|(?:create|add)\s+(?:(?:a|the)\s+)?(?:new\s+)?task)\b/i.test(input) && !/\?\s*$/.test(input);
 }
 const TASK_STOPWORDS = new Set(["a", "an", "the", "to", "in", "on", "for", "of", "with", "from", "about", "by", "at", "and"]);
 const PROGRESS_STOPWORDS = new Set([...TASK_STOPWORDS, "i", "we", "m", "re", "am", "are", "have", "had", "just", "already", "started", "began", "working", "work", "project", "feature", "task"]);
@@ -319,6 +319,13 @@ export function parseIntent(output, input, context = {}) {
       if (priority) metadataPhrases.push(parsed.priorityPhrase);
       if (dueAt) metadataPhrases.push(relativeDue?.phrase || duePhrase);
       title = stripMetadata(parsed.title, metadataPhrases);
+      if (isCaptureRequest(input)) {
+        const requestDetails = normalized(stripMetadata(input, metadataPhrases)).split(" ")
+          .filter((word) => word.length > 2 && !TASK_STOPWORDS.has(word) &&
+            !["please", "new", "task"].includes(word)).slice(1);
+        const titleWords = new Set(normalized(title).split(" "));
+        if (!requestDetails.length || !requestDetails.every((word) => titleWords.has(word))) title = undefined;
+      }
     }
     const project =
       typeof parsed.project === "string"
