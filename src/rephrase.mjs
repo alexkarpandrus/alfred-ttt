@@ -49,57 +49,24 @@ export function isCaptureRequest(input) {
 }
 const TASK_STOPWORDS = new Set(["a", "an", "the", "to", "in", "on", "for", "of", "with", "from", "about", "by", "at", "and"]);
 const PROGRESS_STOPWORDS = new Set([...TASK_STOPWORDS, "i", "we", "m", "re", "am", "are", "have", "had", "just", "already", "started", "began", "working", "work", "project", "feature", "task"]);
-const IRREGULAR_PAST = new Map([
-  ["send", "sent"], ["write", "wrote"], ["make", "made"], ["run", "ran"],
-  ["go", "went"], ["give", "gave"], ["get", "got"], ["take", "took"],
-  ["do", "did"], ["build", "built"], ["plan", "planned"], ["try", "tried"],
-  ["stop", "stopped"], ["drop", "dropped"],
-]);
-
-function reportsPastWork(note, phrase, title) {
+function reportsPastWork(note, phrase) {
   if (!sourcedPhrase(note, phrase)) return false;
-  const [action, ...details] = normalized(title).split(" ");
-  const [subject, ...context] = details.filter((word) => !TASK_STOPWORDS.has(word));
-  const recipientIndex = details.indexOf("to");
-  const recipient = recipientIndex < 0 ? undefined : details[recipientIndex + 1];
-  const pastAction = IRREGULAR_PAST.get(action) ||
-    `${action}${action.endsWith("e") ? "d" : "ed"}`;
-  // Split coordinated actions and requests, not nouns such as “research and development”.
+  const evidenceWords = new Set(normalized(phrase).split(" "));
+  // A model chooses the task; these checks only verify that the note asserts completed work.
   const clauses = note.split(new RegExp(
-    `[,;.!]|\\bbut\\b|\\band\\s+(?=(?:(?:(?:next|this)\\s+(?:week|month|year|day)|tomorrow|today|tonight)\\s+)?(?:[a-z]+\\s+)?(?:[a-z]+['’](?:ll|d|t)\\s+|(?:${PAST_VERB}|${action}|${REQUEST_WORD}|plan(?:s|ned)?\\s+to)\\b))`,
+    `[,;.!]|\\bbut\\b|\\band\\s+(?=(?:(?:(?:next|this)\\s+(?:week|month|year|day)|tomorrow|today|tonight)\\s+)?(?:[a-z]+\\s+)?(?:[a-z]+['’](?:ll|d|t)\\s+|(?:${PAST_VERB}|${REQUEST_WORD}|plan(?:s|ned)?\\s+to)\\b))`,
     "i",
   ));
-  const phraseClause = clauses.find((clause) => sourcedPhrase(clause, phrase));
-  if (phraseClause && !PAST_REPORT.test(phraseClause.trim()) &&
-      normalized(phraseClause).split(" ").includes(action)) return false;
-
   return clauses.some((clause) => {
-    if (clause.includes("?") || REQUEST_OR_NEGATION.test(clause.replace(/\bMay\b/g, "")) || !PAST_REPORT.test(clause.trim())) return false;
+    if (clause.includes("?") || REQUEST_OR_NEGATION.test(clause.replace(/\bMay\b/g, "")) ||
+        !PAST_REPORT.test(clause.trim()) || STARTED_REPORT.test(clause.trim())) return false;
     const words = normalized(clause).split(" ");
-    const verbIndex = words.indexOf(pastAction);
-    if (verbIndex < 0) {
-      // The model paraphrases the task's verb ("answered" for "respond"). The note still reports
-      // this task's action when it names every distinctive word of the title, unless it reports
-      // starting the work or hedges that it happened.
-      const reportedVerbIndex = words.findIndex((word) => PAST_VERB_WORD.test(word));
-      const reportedLead = words.slice(0, reportedVerbIndex).join(" ");
-      if (reportedVerbIndex < 0 || !REPORT_LEAD.test(reportedLead) || STARTED_REPORT.test(clause.trim())) return false;
-      const nouns = details.filter((word) => !TASK_STOPWORDS.has(word));
-      return nouns.length > 0 && nouns.every((noun) => words.includes(noun));
-    }
-    // An embedded claim about the task is not a report that its action happened.
+    const verbIndex = words.findIndex((word) => evidenceWords.has(word) && PAST_VERB_WORD.test(word));
+    if (verbIndex < 0) return false;
     const lead = words.slice(0, verbIndex).join(" ");
-    const active = REPORT_LEAD.test(lead);
-    const passive = subject && new RegExp(
-      `^(?:the\\s+)?(?:${subject}|${subject[0]})\\s+(?:was|were|has|have|had)(?:\\s+(?:been|just|already|finally))*$`,
-      "i",
-    ).test(lead);
-    if (!active && !passive) return false;
-    const objects = passive ? words : words.slice(verbIndex + 1);
-    const reportedRecipientIndex = words.indexOf("to", verbIndex + 1);
-    return (!subject || objects.includes(subject) || objects.includes(subject[0])) &&
-      (!context.length || context.some((word) => objects.includes(word))) &&
-      (!recipient || (reportedRecipientIndex > verbIndex && words[reportedRecipientIndex + 1] === recipient));
+    return REPORT_LEAD.test(lead) ||
+      (!/^(?:i|we)\b/.test(lead) &&
+        /\b(?:was|were|has|have|had)(?:\s+(?:been|just|already|finally))*$/.test(lead));
   });
 }
 
@@ -295,10 +262,9 @@ export function parseIntent(output, input, context = {}) {
         .filter((id) => typeof id === "string")
         .map((id) => id.toLocaleLowerCase()),
     );
-    const completedTasks = completableTasks.filter((task) =>
-      selectedIds.has(String(task.id).toLocaleLowerCase()) &&
-      reportsPastWork(input, parsed.statePhrase, task.title),
-    );
+    const completedTasks = reportsPastWork(input, parsed.statePhrase)
+      ? completableTasks.filter((task) => selectedIds.has(String(task.id).toLocaleLowerCase()))
+      : [];
     const taskRelativeCompletion = completedTasks.length > 0;
     const state = startedWork && explicitState === "completed" && !taskRelativeCompletion
       ? "active" : explicitState || (taskRelativeCompletion ? "completed" : startedWork ? "active" : undefined);

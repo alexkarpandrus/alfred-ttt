@@ -112,6 +112,7 @@ let session = LanguageModelSession(instructions: """
     Never use open, active, waiting, completed, canceled, or blocked as labels.
     A state change may be explicit. Also infer completed when a past-tense report says the action of a supplied open, active, or waiting task was carried out.
     Copy the exact supporting words into statePhrase and set state to completed. Put only plausible matching task IDs in completedTaskIds, including all plausible matches when ambiguous.
+    Match by meaning, not literal title overlap: a brief report may name only the person, with a minor spelling difference, and omit the task's topic. Do not select a task when the report conflicts with its person, action, object, or project.
     Do not infer completion from an action request, a general status report, or an update that does not say the matched task's action happened.
     Infer active only from explicit starting or work in progress, waiting only from explicit pausing or waiting on someone,
     open only from words such as reopen, resume, or unblock, and canceled only from explicit cancellation.

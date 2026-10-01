@@ -142,7 +142,6 @@ test("parseIntent rejects model-inferred completion for action requests", () => 
     "w should be added to codeowners",
     "w was not added to codeowners",
     "set w in codeowners",
-    "I expected to add w to codeowners",
   ]) {
     assert.deepEqual(
       parseIntent(
@@ -158,6 +157,10 @@ test("parseIntent rejects model-inferred completion for action requests", () => 
       input,
     );
   }
+  const expected = "I expected to add w to codeowners";
+  assert.deepEqual(parseIntent(JSON.stringify({
+    state: "completed", statePhrase: expected, completedTaskIds: [],
+  }), expected, context), {});
 });
 
 test("parseIntent accepts other reported past work", () => {
@@ -195,7 +198,7 @@ test("parseIntent accepts a direct passive completion report", () => {
   }
 });
 
-test("parseIntent selects only the named recipient", () => {
+test("parseIntent uses the AI-selected recipient and ignores invented IDs", () => {
   for (const input of [
     "I sent release notes to Bob",
     "I sent release notes to Bob with Alice",
@@ -203,7 +206,7 @@ test("parseIntent selects only the named recipient", () => {
     assert.deepEqual(
       parseIntent(
         JSON.stringify({
-          state: "completed", statePhrase: input, completedTaskIds: ["alice", "bob"],
+          state: "completed", statePhrase: input, completedTaskIds: ["bob", "invented"],
         }),
         input,
         { tasks: [
@@ -273,7 +276,7 @@ test("parseIntent accepts completed work with adverbs and later request clauses"
     ["I finally added w to codeowners", "added w to codeowners"],
     ["I recently added w to codeowners", "added w to codeowners"],
     ["added w to codeowners, but need to tell the team", "added w to codeowners"],
-    ["added w to codeowners and need to tell the team", "need to tell the team"],
+    ["added w to codeowners and need to tell the team", "added w to codeowners"],
     ["I've added w to codeowners", "added w to codeowners"],
   ]) {
     assert.deepEqual(
@@ -296,7 +299,7 @@ test("parseIntent accepts completed work with adverbs and later request clauses"
   }
 });
 
-test("parseIntent does not use past work from a different clause", () => {
+test("parseIntent does not complete a task the AI rejected as unrelated", () => {
   for (const [input, statePhrase] of [
     ["add w to codeowners; I sent the report", "I sent the report"],
     ["add w to codeowners; I added the report to codeowners", "add w to codeowners"],
@@ -314,7 +317,7 @@ test("parseIntent does not use past work from a different clause", () => {
         JSON.stringify({
           state: "completed",
           statePhrase,
-          completedTaskIds: ["de34c681"],
+          completedTaskIds: [],
         }),
         input,
         { tasks: [{ id: "de34c681", title: "Add Wojtech to CODEOWNERS", state: "open" }] },

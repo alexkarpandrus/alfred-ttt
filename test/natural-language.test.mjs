@@ -19,9 +19,9 @@ const completionCases = [
   ["I did not send the report to Alice", "Send report to Alice", false],
   ["If I sent the report to Alice", "Send report to Alice", false],
   ["I heard Alice sent the report to Alice", "Send report to Alice", false],
-  ["I sent the report to Bob", "Send report to Alice", false],
-  ["I sent the invoice to Alice", "Send report to Alice", false],
-  ["The report was sent to Bob", "Send report to Alice", false],
+  ["I sent the report to Bob", "Send report to Alice", false, false],
+  ["I sent the invoice to Alice", "Send report to Alice", false, false],
+  ["The report was sent to Bob", "Send report to Alice", false, false],
   ["I plan to send the report to Alice", "Send report to Alice", false],
   ["I sent the report to Alice?", "Send report to Alice", false],
   ["I fixed the billing retries", "Fix billing retries", true],
@@ -33,12 +33,12 @@ const completionCases = [
   ["I likely replied to Maryna", "Respond to Maryna", false],
   ["I possibly answered Maryna", "Respond to Maryna", false],
   ["I have heard Maryna answered the patrol request", "Answer the patrol request", false],
-  ["I archived invoices in Anaconda", "Archive invoices in Mamba", false],
-  ["I added Alex to CODEOWNERS", "Add Sam to CODEOWNERS", false],
+  ["I archived invoices in Anaconda", "Archive invoices in Mamba", false, false],
+  ["I added Alex to CODEOWNERS", "Add Sam to CODEOWNERS", false, false],
 ];
 
-test("past-work notes complete the task whose action the note reports", () => {
-  for (const [note, title, shouldComplete] of completionCases) {
+test("past-work notes complete only eligible tasks selected by AI", () => {
+  for (const [note, title, shouldComplete, modelSelectsTask = true] of completionCases) {
     const tasks = [
       { id: "selected", title, state: "open" },
       { id: "unrelated", title: "Review finances", state: "canceled" },
@@ -49,7 +49,7 @@ test("past-work notes complete the task whose action the note reports", () => {
         lookupTaskIds: ["selected"],
         state: "completed",
         statePhrase: note,
-        completedTaskIds: ["selected", "unrelated", "invented"],
+        completedTaskIds: modelSelectsTask ? ["selected", "unrelated", "invented"] : ["unrelated", "invented"],
       }),
       note,
       { tasks },
@@ -68,6 +68,33 @@ test("past-work notes complete the task whose action the note reports", () => {
       note,
     );
     if (shouldComplete) assert.match(results[0].title, /^✅ Complete:/, note);
+  }
+});
+
+test("AI-selected Elliott completion accepts a short report and a name typo", () => {
+  const task = { id: "elliott", title: "Answer Elliott about apo sheet", state: "open" };
+  for (const note of ["answered to elliot", "answered elliott", "answered to elliott"]) {
+    const intent = parseIntent(JSON.stringify({
+      inputMode: "lookup", lookupTaskIds: [task.id], state: "completed",
+      statePhrase: note, completedTaskIds: [task.id],
+    }), note, { tasks: [task] });
+    const [first] = buildItems(note, {
+      items: [{ displayId: task.id, title: task.title, state: task.state }], intent,
+    });
+    assert.match(first.title, /^✅ Complete:/, note);
+    assert.deepEqual(decodeRequest(first.arg), {
+      action: "update_item", item: task.id, comment: note, state: "completed",
+    }, note);
+  }
+  for (const note of ["I probably answered to elliot", "I didn't answer elliot", "did i answer elliot?"]) {
+    const intent = parseIntent(JSON.stringify({
+      inputMode: "lookup", lookupTaskIds: [task.id], state: "completed",
+      statePhrase: note, completedTaskIds: [task.id],
+    }), note, { tasks: [task] });
+    const results = buildItems(note, {
+      items: [{ displayId: task.id, title: task.title, state: task.state }], intent,
+    });
+    assert.ok(results.every((item) => !item.arg || decodeRequest(item.arg).state !== "completed"), note);
   }
 });
 
