@@ -70,11 +70,22 @@ test("ll offers completion only for a Jev-verified open task and shows its title
   assert.doesNotMatch(rejected.title, /Complete/);
 });
 
-test("ll fails closed if semantic ranking was not provided by Jev", async () => {
-  const [item] = await journalSuggestions("asked Jade", {
+test("ll offers journal-only capture when semantic search returns unscored results", async () => {
+  const note = "adsad";
+  const [item] = await journalSuggestions(note, {
     search: async () => [{ ...openTask, semanticProbability: undefined }],
+    judge: async () => assert.fail("Unscored tasks must not be judged for completion"),
   });
-  assert.equal(item.valid, false);
+  assert.notEqual(item.valid, false);
+  assert.match(item.subtitle, /Task completion not verified/);
+  const request = decodeRequest(item.arg);
+  assert.deepEqual(request, { action: "journal", kind: "note", note });
+  let written;
+  assert.equal(await applyJournalRequest(request, {
+    append: async (text) => { written = text; },
+    apply: async () => assert.fail("Journal-only capture must not change a task"),
+  }), "Saved journal entry; no task changed");
+  assert.equal(written, note);
 });
 
 test("journal applies Taskwarrior changes only after writing the raw entry", async () => {

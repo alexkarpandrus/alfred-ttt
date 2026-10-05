@@ -38,7 +38,7 @@ export async function journalSuggestions(note, options = {}) {
   const find = options.search || search;
   const candidates = await find("item", note, { semantic: true, limit: 5 });
   if (candidates.some((task) => !Number.isFinite(task.semanticProbability)))
-    return [{ title: "Jev semantic matching is unavailable", subtitle: "No task or journal change", valid: false }];
+    return [journalItem(note, "Task completion not verified · journal only")];
   const candidate = candidates.find((task) => OPEN_STATES.has(task.state));
   if (!candidate || candidate.semanticProbability < 0.75)
     return [journalItem(note, "No sufficiently close open task")];
