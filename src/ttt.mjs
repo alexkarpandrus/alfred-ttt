@@ -64,6 +64,14 @@ export async function requireStandaloneActions(options = {}) {
   return version;
 }
 
+export async function requireTaskwarrior(options = {}) {
+  const profile = options.profile || process.env.TTT_PROFILE || "own";
+  const status = await runTtt(["status", "--profile", profile], options);
+  if (status.tracker?.provider !== "taskwarrior")
+    throw new Error(`Profile ${profile} must use Taskwarrior for ll.`);
+  return profile;
+}
+
 export async function search(kind, query, options = {}) {
   if (!query.trim()) return [];
   const profile = options.profile || process.env.TTT_PROFILE || "own";
@@ -81,6 +89,10 @@ export async function search(kind, query, options = {}) {
   if (options.semantic) args.push("--semantic");
   const result = await runTtt(args, options);
   return result.candidates || [];
+}
+
+export async function checkProject(note, project, options = {}) {
+  return runTtt(["check-project", "--note", note, "--project", project], options);
 }
 
 export async function listItems(options = {}) {

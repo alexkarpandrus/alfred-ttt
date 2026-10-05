@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { decodeRequest } from "./plan.mjs";
+import { applyJournalRequest } from "./journal-flow.mjs";
 import { previewAndApply, requireStandaloneActions } from "./ttt.mjs";
 
 export function successMessage(request) {
@@ -10,6 +11,10 @@ export function successMessage(request) {
 
 async function main() {
   const request = decodeRequest(process.argv[2] || "");
+  if (request.action === "journal") {
+    process.stdout.write(await applyJournalRequest(request));
+    return;
+  }
   if (request.action === "show_summary") {
     process.stdout.write("__TTT_SUMMARY__");
     return;

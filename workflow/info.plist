@@ -84,7 +84,7 @@
         <key>escaping</key>
         <integer>102</integer>
         <key>keyword</key>
-        <string>ttt</string>
+        <string>ttt||ll</string>
         <key>queuedelaycustom</key>
         <real>0.35</real>
         <key>queuedelayimmediatelyinitially</key>
@@ -263,7 +263,7 @@
     <dict>
       <key>config</key>
       <dict><key>default</key><false/><key>required</key><false/><key>text</key><string>Use Jev semantic ranking</string></dict>
-      <key>description</key><string>Sends your text and candidate excerpts to TypeSafe AI through ttt.</string>
+      <key>description</key><string>Controls ttt keyword only. The ll keyword always sends journal notes and task context to Jev for completion matching; it never sends notes for explicit TODO creation.</string>
       <key>label</key><string>Semantic matching</string>
       <key>type</key><string>checkbox</string>
       <key>variable</key><string>TTT_SEMANTIC</string>
@@ -275,6 +275,14 @@
       <key>label</key><string>Task intent</string>
       <key>type</key><string>checkbox</string>
       <key>variable</key><string>TTT_REPHRASE</string>
+    </dict>
+    <dict>
+      <key>config</key>
+      <dict><key>default</key><string></string><key>placeholder</key><string>TypeSafe AI API key</string><key>required</key><false/><key>trim</key><true/></dict>
+      <key>description</key><string>Jev key for ll completion matching. Alfred saves this value in prefs.plist, not Keychain. Do not share your preferences.</string>
+      <key>label</key><string>Jev API key for ll</string>
+      <key>type</key><string>textfield</string>
+      <key>variable</key><string>TYPESAFE_API_KEY</string>
     </dict>
   </array>
   <key>variablesdontexport</key>

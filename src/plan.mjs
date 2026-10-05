@@ -1,4 +1,4 @@
-import { isCaptureRequest, reportsDoneWork, reportsProgress } from "./rephrase.mjs";
+import { isCaptureRequest, reportsDoneWork, reportsProgress, taggedLabels } from "./rephrase.mjs";
 
 const LABEL_RULES = [
   {
@@ -78,7 +78,7 @@ export function labelChanges(text, inferredLabels = []) {
   const ruleLabels = LABEL_RULES.filter(
     ({ add, label }) => add.test(text) && !removed.has(label.toLocaleLowerCase()),
   ).map(({ label }) => label);
-  const addLabels = [...new Set([...ruleLabels, ...inferredLabels])].filter(
+  const addLabels = [...new Set([...ruleLabels, ...inferredLabels, ...taggedLabels(text)])].filter(
     (label) => {
       const normalized = label.toLocaleLowerCase();
       return !removed.has(normalized) && !RESERVED_LABELS.has(normalized);

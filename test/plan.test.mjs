@@ -42,6 +42,25 @@ test("labelChanges accepts inferred taxonomy but rejects lifecycle labels", () =
   );
 });
 
+test("explicit hashtags become tracker labels without model inference", () => {
+  const note = "Ask Jade about data quality #sadsad";
+  assert.deepEqual(labelChanges(note), { addLabels: ["sadsad"], removeLabels: [] });
+  assert.deepEqual(labelChanges("ask Jade #sadsad +sadsad #sadsad"), {
+    addLabels: ["sadsad"], removeLabels: [],
+  });
+  assert.equal(decodeRequest(buildItems(note, { items: [], intent: {} })[0].arg).labels[0], "sadsad");
+  assert.deepEqual(parseIntent("{}", note), { labels: ["sadsad"] });
+  assert.deepEqual(labelChanges("ask Jade #blocked"), { addLabels: [], removeLabels: [] });
+  assert.deepEqual(labelChanges("visit https://example.test/#fragment #sadsad, #review"), {
+    addLabels: ["sadsad", "review"], removeLabels: [],
+  });
+  const [update] = buildItems("asked Jade #sadsad", {
+    items: [{ displayId: "abc123", title: "Ask Jade", state: "open" }],
+    target: "abc123", allowCreate: false,
+  });
+  assert.deepEqual(decodeRequest(update.arg).addLabels, ["sadsad"]);
+});
+
 test("parseCommand recognizes task listing and targeted free-form updates", () => {
   assert.deepEqual(parseCommand("list waiting"), {
     mode: "list",

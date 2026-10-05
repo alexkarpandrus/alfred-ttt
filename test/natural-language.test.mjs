@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { buildItems, decodeRequest, matchingTitles, parseCommand } from "../src/plan.mjs";
-import { parseIntent } from "../src/rephrase.mjs";
+import { buildInferenceContext, confirmCompletionWithJev, parseIntent, reportsPastWork } from "../src/rephrase.mjs";
 
 const completionCases = [
   ["I sent the report to Alice", "Send report to Alice", true],
@@ -69,6 +69,79 @@ test("past-work notes complete only eligible tasks selected by AI", () => {
     );
     if (shouldComplete) assert.match(results[0].title, /^✅ Complete:/, note);
   }
+});
+
+test("Jev checks the task even when the model selected a plausible wrong ID", () => {
+  const cases = [
+    ["I sent the report to Bob", ["Send report to Alice"], ["wrong"], []],
+    ["I sent the invoice to Alice", ["Send report to Alice"], ["wrong"], []],
+    ["I archived invoices in Anaconda", ["Archive invoices in Mamba"], ["wrong"], []],
+    ["I sent release notes to Bob with Alice", ["Send release notes to Alice"], ["wrong"], []],
+    ["I sent release notes to Bob with Alice", ["Send release notes to Alice"], ["wrong"],
+      [{ displayId: "wrong", semanticProbability: 0.52 }]],
+    ["I sent release notes to Bob with Alice", ["Send release notes to Alice", "Send release notes to Bob"],
+      ["wrong"], [{ displayId: "right", semanticProbability: 0.71 }, { displayId: "wrong", semanticProbability: 0.05 }], "right"],
+    ["answered to elliot", ["Answer Elliott about apo sheet"], ["wrong"],
+      [{ displayId: "wrong", semanticProbability: 0.92 }], "wrong"],
+    ["answered maryna", ["Respond to Maryna"], ["wrong"],
+      [{ displayId: "wrong", semanticProbability: 0.86 }], "wrong"],
+  ];
+  for (const [note, titles, modelIds, jevCandidates, expected] of cases) {
+    const items = titles.map((title, index) => ({
+      displayId: index ? "right" : "wrong", title, state: "open",
+    }));
+    const intent = parseIntent(JSON.stringify({
+      inputMode: "capture", state: "completed", statePhrase: note, completedTaskIds: modelIds,
+    }), note, buildInferenceContext(items));
+    assert.equal(intent.taskRelativeCompletion, true, `model reproduced wrong selection for ${note}`);
+    const checked = confirmCompletionWithJev(intent, jevCandidates.length ? jevCandidates : items, items);
+    const completed = buildItems(note, { items, intent: checked }).filter((item) => item.arg)
+      .map((item) => decodeRequest(item.arg))
+      .filter((request) => request.state === "completed")
+      .map((request) => request.item);
+    assert.deepEqual(completed, expected ? [expected] : [], note);
+  }
+});
+
+test("Jev can resolve a definite work report omitted by the first model", () => {
+  const note = "I sent release notes to Bob with Alice";
+  const items = [
+    { displayId: "alice", title: "Send release notes to Alice", state: "open" },
+    { displayId: "bob", title: "Send release notes to Bob", state: "open" },
+  ];
+  const intent = parseIntent(JSON.stringify({ inputMode: "lookup", state: "open",
+    statePhrase: note, completedTaskIds: [] }), note, buildInferenceContext(items));
+  assert.equal(intent.taskRelativeCompletion, undefined);
+  assert.equal(reportsPastWork(note, note), true);
+  const checked = confirmCompletionWithJev(intent, [{ displayId: "bob", semanticProbability: 0.68 }], items);
+  const [first] = buildItems(note, { items, intent: checked });
+  assert.match(first.title, /^✅ Complete: Send release notes to Bob/);
+  assert.deepEqual(decodeRequest(first.arg), {
+    action: "update_item", item: "bob", comment: note, state: "completed",
+  });
+});
+
+test("Jev must not complete work in a conflicting task project", () => {
+  const note = "I archived invoices in Anaconda";
+  const items = [{ displayId: "archive", title: "Archive invoices", state: "open",
+    project: { displayId: "Mamba" } }];
+  const intent = parseIntent(JSON.stringify({ inputMode: "capture", state: "completed",
+    statePhrase: note, completedTaskIds: ["archive"] }), note,
+  buildInferenceContext(items, [{ displayId: "Anaconda" }]));
+  const checked = confirmCompletionWithJev(intent,
+    [{ displayId: "archive", semanticProbability: 0.87 }], items,
+    { relation: "different", confidence: 0.85 });
+  const completions = buildItems(note, { items, intent: checked }).filter((item) => item.arg)
+    .map((item) => decodeRequest(item.arg)).filter((request) => request.state === "completed");
+  assert.deepEqual(completions, []);
+  assert.equal(confirmCompletionWithJev(intent,
+    [{ displayId: "archive", semanticProbability: 0.87 }], items,
+    { relation: "unspecified", confidence: 0.4 }).taskRelativeCompletion, false);
+  assert.equal(confirmCompletionWithJev(intent,
+    [{ displayId: "archive", semanticProbability: 0.87 }], items,
+    { relation: "same", confidence: 0.9 }).taskRelativeCompletion, true);
+  assert.equal(confirmCompletionWithJev(intent,
+    [{ displayId: "archive", semanticProbability: 0.87 }], items).taskRelativeCompletion, false);
 });
 
 test("AI-selected Elliott completion accepts a short report and a name typo", () => {
@@ -319,7 +392,7 @@ test("explicit capture requests keep Create when the model guesses lookup", () =
   const unrelated = { displayId: "unrelated", title: "Raise deprecate request for patrol", state: "open" };
   const notes = ["respond to Maryna", "reply to Maryna", "please respond to Maryna",
     "create a task to respond to Maryna", "add a new task to respond to Maryna",
-    "answer Elliott about APO sheet"];
+    "answer Elliott about APO sheet", "Create a follow-up to review invoices"];
   for (const note of notes) {
     const existing = { displayId: "matching", title: note, state: "open" };
     const tasks = [unrelated, existing].map(({ displayId, title, state }) => ({ id: displayId, title, state }));

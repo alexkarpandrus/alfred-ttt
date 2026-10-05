@@ -36,14 +36,15 @@ Alfred's workflow configuration lets you change the `ttt` command and profile.
 
 ## Model regression checks
 
-`npm test` runs the deterministic command and safety cases. To evaluate the on-device model with synthetic tasks after building the workflow:
+`npm test` runs deterministic command and safety cases. On a Mac with Apple Intelligence and ttt's Jev API key configured, test both models with synthetic tasks:
 
 ```sh
-unzip -oq dist/alfred-ttt.alfredworkflow bin/rephrase -d dist/model-eval
-TTT_MODEL_BINARY="$PWD/dist/model-eval/bin/rephrase" node --test scripts/evaluate-model.mjs
+npm run test:model
 ```
 
-This optional check does not read or change tracker tasks.
+This check sends only synthetic tasks to Jev through ttt's inference code. Set `TTT_JEV_HOME` if ttt is not installed at `~/.local/share/tickettrain`. Set `TTT_JEV_SOURCE` to a tickettrain checkout with `check-project` until that command is installed. It does not read or change tracker tasks. A failure means the workflow can still offer an incorrect action.
+
+Automatic **Complete** suggestions require the **Use Jev semantic ranking** checkbox. When it is off, Alfred does not send notes to Jev and does not offer automatic completion. Other capture and lookup actions still work. Project-specific completions also require a `ttt` version with the read-only `check-project` command; if Jev or the command is unavailable, Alfred does not offer **Complete**.
 
 ## Browse and update tasks
 
@@ -61,11 +62,21 @@ Short aliases are `ttt l` for listing and `ttt l o/a/w/d/c` for open, active, wa
 
 ## On-device inference
 
-Apple's Foundation Models framework receives a bounded local context from matching tasks, projects, and labels. It distinguishes lookup phrases from action notes and selects plausible task IDs for read-only browsing; returned IDs are checked against that context. Without the model, literal title fragments still browse existing work. It rewrites new-task titles, reuses the existing project and label taxonomy, and infers explicit lifecycle, priority, and due-date changes. A past-tense report can also propose completing a matching open task; Alfred lists competing matches for explicit selection. New labels require an explicit `+label` token. Relative due dates use the current local date and timezone; dates without a time are due at 23:59:59 local. Alfred shows every inferred mutation before approval. The raw note is preserved as a tracker comment. Disable Apple Intelligence in the workflow configuration to keep exact titles and rule-based labels.
+Apple's Foundation Models framework receives a bounded local context from matching tasks, projects, and labels. It distinguishes lookup phrases from action notes and selects plausible task IDs for read-only browsing; returned IDs are checked against that context. Without the model, literal title fragments still browse existing work. It rewrites new-task titles, reuses the existing project and label taxonomy, and infers explicit lifecycle, priority, and due-date changes. A past-tense report can also propose completing a matching open task; Alfred lists competing matches for explicit selection. New labels require an explicit `+label` or `#label` token. Relative due dates use the current local date and timezone; dates without a time are due at 23:59:59 local. Alfred shows every inferred mutation before approval. The raw note is preserved as a tracker comment. Disable Apple Intelligence in the workflow configuration to keep exact titles and rule-based labels.
 
 ## Optional semantic matching
 
 Enable **Use Jev semantic ranking** in the workflow configuration after configuring `TYPESAFE_API_KEY` for `ttt`. This sends the entered text and tracker candidate excerpts to TypeSafe AI. Without it, the workflow uses `ttt` lexical search.
+
+## Journal (`ll`)
+
+`ll <text>` saves a timestamped plain block in today's journal in the detected `~/logseq` graph. Set `LOGSEQ_GRAPH` to another graph directory if needed. The original one-line text follows the local `HH:mm` timestamp. Explicit `#tag` tokens remain native Logseq tags; no other tags are inferred.
+
+`ll TODO ask a teammate` also creates a Taskwarrior item through `ttt` preview/apply, with the original note as an append-only comment. For other notes, `ttt` semantic search and Jev check whether the note confidently completes an open Taskwarrior task. Alfred shows its title before Return; if Jev cannot verify it, the entry is journal-only. Explicit `#tag` tokens also become Taskwarrior labels on created or completed items; the raw journal text stays unchanged. `ll` requires a Taskwarrior `ttt` profile. It sends the note and task context to Jev; it does not use the optional `ttt` semantic checkbox.
+
+Set **Jev API key for ll** in Alfred Workflow Configuration, or provide `TYPESAFE_API_KEY` in Alfred’s environment. Alfred saves configuration values in `prefs.plist`, not Keychain; treat that file as sensitive and do not share or sync it without protecting it. A key in an interactive shell alone does not reach Alfred. If Jev or `ttt` is unavailable, `ll` does not propose an unverified completion.
+
+**Logseq task creation and DONE updates are placeholders until [tickettrain #90](https://github.com/alexkarpandrus/tickettrain/issues/90) is implemented.** Journal entries remain plain blocks, even when their text starts with `TODO`. Taskwarrior mutations happen after writing the journal entry; if they fail, inspect the task before retrying to avoid a duplicate journal entry.
 
 ## Examples
 

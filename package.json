@@ -5,9 +5,15 @@
   "type": "module",
   "scripts": {
     "build": "./scripts/build.sh",
-    "test": "node --test"
+    "test": "node --test",
+    "test:model": "mkdir -p dist && xcrun swiftc -O native/rephrase.swift -o dist/rephrase-test && TTT_MODEL_BINARY=./dist/rephrase-test node --test scripts/evaluate-model.mjs"
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "@earendil-works/chord": "^1.0.0",
+    "@earendil-works/pi-ai": "^1.0.0",
+    "@earendil-works/pi-durable": "^1.0.0"
   }
 }

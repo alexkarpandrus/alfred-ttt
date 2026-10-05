@@ -7,8 +7,8 @@ const workflow = await readFile(
   "utf8",
 );
 
-test("the Alfred workflow uses the ttt keyword", () => {
-  assert.match(workflow, /<key>keyword<\/key>\s*<string>ttt<\/string>/);
+test("the Alfred workflow exposes ttt and ll keywords", () => {
+  assert.match(workflow, /<key>keyword<\/key>\s*<string>ttt\|\|ll<\/string>/);
 });
 
 test("the Alfred workflow routes the summary action to Text View", () => {
@@ -19,4 +19,10 @@ test("the Alfred workflow routes the summary action to Text View", () => {
     workflow,
     /<key>inputfile<\/key>\s*<string>bin\/summary<\/string>/,
   );
+});
+
+test("the Alfred workflow offers an optional Jev key without embedding a credential", () => {
+  assert.match(workflow, /<key>variable<\/key><string>TYPESAFE_API_KEY<\/string>/);
+  assert.match(workflow, /<key>default<\/key><string><\/string><key>placeholder<\/key><string>TypeSafe AI API key<\/string>/);
+  assert.match(workflow, /Alfred saves this value in prefs\.plist, not Keychain/);
 });

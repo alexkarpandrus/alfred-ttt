@@ -7,7 +7,9 @@ import test from "node:test";
 import {
   listItems,
   previewAndApply,
+  checkProject,
   requireStandaloneActions,
+  requireTaskwarrior,
   search,
 } from "../src/ttt.mjs";
 
@@ -25,8 +27,10 @@ const request = requestIndex < 0 ? null : JSON.parse(readFileSync(args[requestIn
 appendFileSync(process.env.TTT_FAKE_LOG, JSON.stringify({ args, request }) + "\\n");
 let data;
 if (args[0] === "version") data = { capabilities: ["create-items", "update-items", "list-items", "search-items", "search-projects", "search-labels", "item-lifecycle"] };
+else if (args[0] === "status") data = { tracker: { provider: process.env.TTT_FAKE_TRACKER || "taskwarrior" } };
 else if (args[0] === "list") data = { items: [{ displayId: "abc123", title: "Ask Jade", state: "open" }] };
 else if (args[0] === "search") data = { candidates: [{ displayId: "abc123", title: "Ask Jade" }] };
+else if (args[0] === "check-project") data = { relation: "different", confidence: 0.85 };
 else if (args[0] === "preview") data = { proposalId: "lp2_test" };
 else if (args[0] === "apply") data = { item: { displayId: "abc123" } };
 process.stdout.write(JSON.stringify({ schemaVersion: 2, ok: true, data }));
@@ -66,6 +70,33 @@ test("ttt wrapper lists, searches, and applies the exact previewed request", asy
     assert.deepEqual(calls[3].request, request);
     assert.deepEqual(calls[4].request, request);
     assert.ok(calls[4].args.includes("lp2_test"));
+  } finally {
+    await rm(fake.directory, { recursive: true, force: true });
+  }
+});
+
+
+test("ttt wrapper asks for a read-only project comparison", async () => {
+  const fake = await fakeTtt();
+  try {
+    const answer = await checkProject("I archived invoices in Anaconda", "Mamba", {
+      binary: fake.binary, env: fake.env,
+    });
+    assert.deepEqual(answer, { relation: "different", confidence: 0.85 });
+    const [call] = (await readFile(fake.log, "utf8")).trim().split("\n").map(JSON.parse);
+    assert.deepEqual(call.args, ["check-project", "--note", "I archived invoices in Anaconda",
+      "--project", "Mamba"]);
+  } finally {
+    await rm(fake.directory, { recursive: true, force: true });
+  }
+});
+
+test("ttt wrapper refuses a non-Taskwarrior profile for journal tasks", async () => {
+  const fake = await fakeTtt();
+  try {
+    assert.equal(await requireTaskwarrior({ binary: fake.binary, env: fake.env }), "own");
+    await assert.rejects(requireTaskwarrior({ binary: fake.binary,
+      env: { ...fake.env, TTT_FAKE_TRACKER: "github-issues" } }), /must use Taskwarrior/);
   } finally {
     await rm(fake.directory, { recursive: true, force: true });
   }

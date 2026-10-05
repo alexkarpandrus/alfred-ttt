@@ -45,11 +45,11 @@ export function reportsDoneWork(input) {
 }
 
 export function isCaptureRequest(input) {
-  return /^\s*(?:please\s+)?(?:(?:(?:respond|reply)\s+to|answer)\s+(?=\S)|(?:create|add)\s+(?:(?:a|the)\s+)?(?:new\s+)?task)\b/i.test(input) && !/\?\s*$/.test(input);
+  return /^\s*(?:please\s+)?(?:(?:(?:respond|reply)\s+to|answer|create)\s+(?=\S)|add\s+(?:(?:a|the)\s+)?(?:new\s+)?task\b)/i.test(input) && !/\?\s*$/.test(input);
 }
 const TASK_STOPWORDS = new Set(["a", "an", "the", "to", "in", "on", "for", "of", "with", "from", "about", "by", "at", "and"]);
 const PROGRESS_STOPWORDS = new Set([...TASK_STOPWORDS, "i", "we", "m", "re", "am", "are", "have", "had", "just", "already", "started", "began", "working", "work", "project", "feature", "task"]);
-function reportsPastWork(note, phrase) {
+export function reportsPastWork(note, phrase) {
   if (!sourcedPhrase(note, phrase)) return false;
   const evidenceWords = new Set(normalized(phrase).split(" "));
   // A model chooses the task; these checks only verify that the note asserts completed work.
@@ -142,10 +142,10 @@ function cleanLabel(value) {
     : undefined;
 }
 
-function taggedLabels(input) {
-  return [...input.matchAll(/(?:^|\s)\+([\p{L}\p{N}][\p{L}\p{N}._-]{0,39})(?=$|[\s,;.!?])/gu)]
+export function taggedLabels(input) {
+  return [...new Set([...input.matchAll(/(?:^|\s)[+#]([\p{L}\p{N}][\p{L}\p{N}._-]{0,39})(?=$|[\s,;.!?])/gu)]
     .map(([, value]) => cleanLabel(value))
-    .filter(Boolean);
+    .filter(Boolean))];
 }
 
 function mentionsLabel(input, label) {
@@ -351,6 +351,22 @@ export function parseIntent(output, input, context = {}) {
   } catch {
     return {};
   }
+}
+
+// Jev is the independent target check. ttt's lexical fallback has no probability.
+// ponytail: Reject ambiguous matches below 0.65; retune from measured false positives and negatives.
+const MIN_COMPLETION_PROBABILITY = 0.65;
+export function confirmCompletionWithJev(intent, jevCandidates, items, projectRelation) {
+  const best = jevCandidates[0];
+  const task = best?.semanticProbability >= MIN_COMPLETION_PROBABILITY &&
+    items.find((item) => item.displayId?.toLocaleLowerCase() === best.displayId?.toLocaleLowerCase() &&
+      COMPLETABLE_STATES.has(item.state));
+  const taskProject = task?.project?.displayId || task?.project?.title;
+  return task && (!taskProject || (projectRelation?.confidence >= MIN_COMPLETION_PROBABILITY &&
+    ["same", "unspecified"].includes(projectRelation?.relation)))
+    ? { ...intent, state: "completed", taskRelativeCompletion: true,
+        completedTaskIds: [task.displayId], lookupTaskIds: [task.displayId] }
+    : { ...intent, state: undefined, taskRelativeCompletion: false, completedTaskIds: [], lookupTaskIds: [] };
 }
 
 export async function inferWork(input, options = {}) {

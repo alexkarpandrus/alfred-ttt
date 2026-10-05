@@ -10,8 +10,9 @@ import {
   parseCommand,
   searchQuery,
 } from "./plan.mjs";
-import { buildInferenceContext, inferWork } from "./rephrase.mjs";
-import { listItems, requireStandaloneActions, search } from "./ttt.mjs";
+import { buildInferenceContext, confirmCompletionWithJev, inferWork, reportsPastWork } from "./rephrase.mjs";
+import { journalSuggestions } from "./journal-flow.mjs";
+import { checkProject, listItems, requireStandaloneActions, search } from "./ttt.mjs";
 
 function uniqueEntities(entities) {
   const seen = new Set();
@@ -33,6 +34,10 @@ function output(items) {
 
 async function main() {
   const input = process.argv.slice(2).join(" ").trim();
+  if (process.env.alfred_workflow_keyword === "ll") {
+    output(await journalSuggestions(process.argv.slice(2).join(" ")));
+    return;
+  }
   if (!input) {
     output(buildItems(""));
     return;
@@ -92,10 +97,25 @@ async function main() {
     ...labels,
     ...items.flatMap((item) => item.labels || []),
   ]);
-  const intent = await inferWork(text, {
+  let intent = await inferWork(text, {
     enabled: process.env.TTT_REPHRASE !== "0",
     context: buildInferenceContext(items, availableProjects, availableLabels),
   });
+  if (!target && reportsPastWork(text, text)) {
+    // The Jev checkbox controls external matching; without it, past-work reports cannot auto-complete.
+    const jevCandidates = semantic ? itemGroups[0] : [];
+    const selected = jevCandidates[0];
+    const task = items.find((item) => item.displayId?.toLocaleLowerCase() === selected?.displayId?.toLocaleLowerCase());
+    let projectRelation;
+    if (Number.isFinite(selected?.semanticProbability) && task?.project) {
+      try {
+        projectRelation = await checkProject(text, task.project.displayId || task.project.title);
+      } catch {
+        // If project verification fails, do not offer an irreversible completion.
+      }
+    }
+    intent = confirmCompletionWithJev(intent, jevCandidates, items, projectRelation);
+  }
 
   output(
     buildItems(text, {
