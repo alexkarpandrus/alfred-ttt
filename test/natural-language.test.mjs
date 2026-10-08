@@ -392,7 +392,8 @@ test("explicit capture requests keep Create when the model guesses lookup", () =
   const unrelated = { displayId: "unrelated", title: "Raise deprecate request for patrol", state: "open" };
   const notes = ["respond to Maryna", "reply to Maryna", "please respond to Maryna",
     "create a task to respond to Maryna", "add a new task to respond to Maryna",
-    "answer Elliott about APO sheet", "Create a follow-up to review invoices"];
+    "answer Elliott about APO sheet", "Create a follow-up to review invoices",
+    "tell jan and elliott about the maple loans", "please tell Jan and Elliott about the Maple loans"];
   for (const note of notes) {
     const existing = { displayId: "matching", title: note, state: "open" };
     const tasks = [unrelated, existing].map(({ displayId, title, state }) => ({ id: displayId, title, state }));
@@ -406,9 +407,29 @@ test("explicit capture requests keep Create when the model guesses lookup", () =
       assert.equal(request.comment, note);
     }
   }
-  assert.equal(parseIntent(JSON.stringify({ inputMode: "lookup" }), "respond to Maryna?").inputMode, "lookup");
+  for (const note of ["respond to Maryna?", "tell Jan about Maple loans?",
+    "tell me about Maple loans", "please tell us about Maple loans"]) {
+    assert.equal(parseIntent(JSON.stringify({ inputMode: "lookup" }), note).inputMode, "lookup", note);
+  }
   const existing = { title: "Respond to Maryna" };
   assert.deepEqual(matchingTitles([existing], "Maryna"), [existing]);
+});
+
+test("tell requests preserve both recipients when the model suggests another task", () => {
+  const note = "tell jan and elliott about the maple loans";
+  const unrelated = { displayId: "other", title: "Tell Elliott about Maple loans", state: "open" };
+  for (const [modelTitle, expectedTitle] of [
+    ["Tell Jan and Elliott about Maple loans", "Tell Jan and Elliott about Maple loans"],
+    [unrelated.title, note],
+  ]) {
+    const intent = parseIntent(JSON.stringify({ inputMode: "lookup",
+      lookupTaskIds: [unrelated.displayId], title: modelTitle }), note,
+    { tasks: [{ id: unrelated.displayId, title: unrelated.title, state: unrelated.state }] });
+    const [first] = buildItems(note, { items: [unrelated], intent });
+    assert.deepEqual(decodeRequest(first.arg), {
+      action: "create_item", title: expectedTitle, comment: note,
+    });
+  }
 });
 
 test("answer requests create under their own title despite unrelated model matches", () => {
