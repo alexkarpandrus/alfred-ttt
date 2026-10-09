@@ -56,6 +56,7 @@ test("Alfred checks the model's completion target with Jev before offering Compl
     ]) {
       const { stdout } = await execFileAsync(process.execPath, [join(directory, "src/filter.mjs"), note], {
         env: { ...process.env, TTT_BIN: ttt, TTT_SEMANTIC: semantic,
+          alfred_workflow_cache: join(directory, "cache"),
           FAKE_TASKS: JSON.stringify(tasks), FAKE_JEV_TASKS: JSON.stringify(jevTasks) },
       });
       const choices = JSON.parse(stdout).items;

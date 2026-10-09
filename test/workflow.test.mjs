@@ -25,4 +25,6 @@ test("the Alfred workflow offers an optional Jev key without embedding a credent
   assert.match(workflow, /<key>variable<\/key><string>TYPESAFE_API_KEY<\/string>/);
   assert.match(workflow, /<key>default<\/key><string><\/string><key>placeholder<\/key><string>TypeSafe AI API key<\/string>/);
   assert.match(workflow, /Alfred saves this value in prefs\.plist, not Keychain/);
+  assert.match(workflow, /<key>label<\/key><string>Jev API key<\/string>/);
+  assert.match(workflow, /Jev key for ttt staged matching and ll completion matching/);
 });

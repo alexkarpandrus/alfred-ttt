@@ -380,6 +380,7 @@ export async function inferWork(input, options = {}) {
       [input, JSON.stringify(context)],
       {
         timeout: 10_000,
+        signal: options.signal,
         maxBuffer: 64 * 1024,
       },
     );

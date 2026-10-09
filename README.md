@@ -68,13 +68,17 @@ Apple's Foundation Models framework receives a bounded local context from matchi
 
 Enable **Use Jev semantic ranking** in the workflow configuration after configuring `TYPESAFE_API_KEY` for `ttt`. This sends the entered text and tracker candidate excerpts to TypeSafe AI. Without it, the workflow uses `ttt` lexical search.
 
+With Jev and Apple Intelligence enabled, unprefixed `ttt` requests use staged suggestions. Clear new-task requests show **Create as written** as soon as local search finishes. This action saves the exact title and rule-based labels, with **no inferred metadata**; wait for a refined suggestion to use an inferred project, priority, or due date. Jev classifies the note and ranks local task candidates in one request while Apple refines titles and metadata in parallel. The first pass searches up to 10 candidates for each of the raw and focused queries, within ttt's search limit. Alfred refreshes the list without changing the original Create action. Results from a different query or profile are ignored, and obsolete requests are canceled. Progress reports, explicit task targets, and `ll` keep their existing verification paths.
+
+Staged results use Alfred's private workflow cache. Cached notes and suggestions are owner-only; the next query replaces them. Disabling the Jev checkbox keeps `ttt` on-device and uses the existing synchronous path.
+
 ## Journal (`ll`)
 
 `ll <text>` saves a timestamped plain block in today's journal in the detected `~/logseq` graph. Set `LOGSEQ_GRAPH` to another graph directory if needed. The original one-line text follows the local `HH:mm` timestamp. Explicit `#tag` tokens remain native Logseq tags; no other tags are inferred.
 
 `ll TODO ask a teammate` also creates a Taskwarrior item through `ttt` preview/apply, with the original note as an append-only comment. For other notes, `ttt` semantic search and Jev check whether the note confidently completes an open Taskwarrior task. Alfred shows its title before Return; if Jev cannot verify it, the entry is journal-only. Explicit `#tag` tokens also become Taskwarrior labels on created or completed items; the raw journal text stays unchanged. `ll` requires a Taskwarrior `ttt` profile. It sends the note and task context to Jev; it does not use the optional `ttt` semantic checkbox.
 
-Set **Jev API key for ll** in Alfred Workflow Configuration, or provide `TYPESAFE_API_KEY` in Alfred’s environment. Alfred saves configuration values in `prefs.plist`, not Keychain; treat that file as sensitive and do not share or sync it without protecting it. A key in an interactive shell alone does not reach Alfred. If Jev or `ttt` is unavailable, `ll` does not propose an unverified completion.
+Set **Jev API key** in Alfred Workflow Configuration, or provide `TYPESAFE_API_KEY` in Alfred’s environment. The same key supports `ttt` staged matching. Alfred saves configuration values in `prefs.plist`, not Keychain; treat that file as sensitive and do not share or sync it without protecting it. A key in an interactive shell alone does not reach Alfred. If Jev or `ttt` is unavailable, `ll` does not propose an unverified completion.
 
 **Logseq task creation and DONE updates are placeholders until [tickettrain #90](https://github.com/alexkarpandrus/tickettrain/issues/90) is implemented.** Journal entries remain plain blocks, even when their text starts with `TODO`. Taskwarrior mutations happen after writing the journal entry; if they fail, inspect the task before retrying to avoid a duplicate journal entry.
 

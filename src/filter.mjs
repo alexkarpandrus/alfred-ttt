@@ -10,9 +10,10 @@ import {
   parseCommand,
   searchQuery,
 } from "./plan.mjs";
-import { buildInferenceContext, confirmCompletionWithJev, inferWork, reportsPastWork } from "./rephrase.mjs";
+import { buildInferenceContext, confirmCompletionWithJev, inferWork, reportsPastWork, reportsProgress } from "./rephrase.mjs";
 import { journalSuggestions } from "./journal-flow.mjs";
 import { checkProject, listItems, requireStandaloneActions, search } from "./ttt.mjs";
+import { cachedRefinement, discardObsoleteRefinement, startRefinement } from "./refinement.mjs";
 
 function uniqueEntities(entities) {
   const seen = new Set();
@@ -28,12 +29,13 @@ function uniqueCandidates(groups) {
   return uniqueEntities(groups.flat());
 }
 
-function output(items) {
-  process.stdout.write(JSON.stringify({ skipknowledge: true, items }));
+function output(items, refresh = {}) {
+  process.stdout.write(JSON.stringify({ skipknowledge: true, items, ...refresh }));
 }
 
 async function main() {
   const input = process.argv.slice(2).join(" ").trim();
+  await discardObsoleteRefinement(input);
   if (process.env.alfred_workflow_keyword === "ll") {
     output(await journalSuggestions(process.argv.slice(2).join(" ")));
     return;
@@ -47,6 +49,18 @@ async function main() {
   if (command.mode === "summary") {
     output(buildSummaryItem());
     return;
+  }
+
+  const staged = process.env.TTT_SEMANTIC === "1" && process.env.TTT_REPHRASE !== "0" &&
+    Boolean(process.env.alfred_workflow_cache) && command.mode !== "list" && !command.target &&
+    !reportsProgress(command.text) && !reportsPastWork(command.text, command.text);
+  if (staged) {
+    const cached = await cachedRefinement(command.text);
+    if (cached) {
+      const { items, ...refresh } = cached;
+      output(items, refresh);
+      return;
+    }
   }
 
   await requireStandaloneActions();
@@ -67,12 +81,12 @@ async function main() {
   }
 
   const focused = searchQuery(text);
-  const semantic = process.env.TTT_SEMANTIC === "1";
+  const semantic = process.env.TTT_SEMANTIC === "1" && !staged;
   const searches = target
     ? [search("item", target, { limit: 1 })]
-    : [search("item", text, { semantic, limit: 5 })];
+    : [search("item", text, { semantic, limit: staged ? 10 : 5 })];
   if (!target && focused.toLowerCase() !== text.toLowerCase())
-    searches.push(search("item", focused, { limit: 5 }));
+    searches.push(search("item", focused, { limit: staged ? 10 : 5 }));
 
   const [itemGroups, projects, labels] = await Promise.all([
     Promise.all(searches),
@@ -97,6 +111,11 @@ async function main() {
     ...labels,
     ...items.flatMap((item) => item.labels || []),
   ]);
+  if (staged) {
+    const { items: initial, ...refresh } = await startRefinement(text, items, availableProjects, availableLabels);
+    output(initial, refresh);
+    return;
+  }
   let intent = await inferWork(text, {
     enabled: process.env.TTT_REPHRASE !== "0",
     context: buildInferenceContext(items, availableProjects, availableLabels),
