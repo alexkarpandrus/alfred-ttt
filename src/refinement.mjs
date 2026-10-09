@@ -20,7 +20,7 @@ export function refinementKey(text, env = process.env) {
 export function firstItems(text, items = [], intent) {
   if (isCaptureRequest(text)) {
     const raw = buildItems(text)[0];
-    raw.subtitle = "as written · no inferred metadata · Return to create";
+    raw.subtitle = raw.subtitle.replace(" · Return to create", " · no inferred metadata · Return to create");
     return [raw, ...buildListItems(items).filter((item) => item.autocomplete)];
   }
   if (intent?.inputMode === "lookup") {

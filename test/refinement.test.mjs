@@ -200,6 +200,7 @@ test("Apple refinement preserves explicit priority, due date, tags, and the raw 
   assert.equal(raw.priority, undefined);
   assert.equal(raw.dueAt, undefined);
   assert.deepEqual(raw.labels, ["ops"]);
+  assert.match(first.items[0].subtitle, /add ops/);
   await until(async () => (await resultFor(env, first))?.pending);
   await writeFile(env.TEST_RELEASE, "ready");
   await until(async () => (await resultFor(env, first))?.pending === false);
