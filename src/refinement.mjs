@@ -23,8 +23,10 @@ export function firstItems(text, items = [], intent) {
     raw.subtitle = "as written · no inferred metadata · Return to create";
     return [raw, ...buildListItems(items).filter((item) => item.autocomplete)];
   }
-  if (intent?.inputMode === "lookup")
-    return buildListItems(items.filter((item) => intent.lookupTaskIds.includes(item.displayId)), text && !items.length ? text : "");
+  if (intent?.inputMode === "lookup") {
+    const matches = items.filter((item) => intent.lookupTaskIds.includes(item.displayId));
+    return buildListItems(matches, matches.length ? "" : text);
+  }
   return [{ title: "Interpreting tracked work…", subtitle: "Apple refinement pending · no task changes", valid: false }];
 }
 

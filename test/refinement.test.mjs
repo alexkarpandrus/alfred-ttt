@@ -105,6 +105,7 @@ async function fixture(t) {
   const directory = await mkdtemp(join(tmpdir(), "alfred-ttt-staged-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   await cp(new URL("../src/", import.meta.url), join(directory, "src"), { recursive: true });
+  await cp(new URL("../package.json", import.meta.url), join(directory, "package.json"));
   await mkdir(join(directory, "bin"));
   await writeFile(join(directory, "ttt.mjs"), fakeTracker);
   await writeFile(join(directory, "bin/rephrase"), fakeModel);
@@ -280,4 +281,13 @@ test("An unresolved lookup cannot become a mutation when both models are unavail
   assert.equal(final.rerun, undefined);
   assert.ok(final.items.every(item => item.valid === false && !item.arg));
   assert.match(final.items[0].subtitle, /AI matching unavailable/);
+});
+
+
+test("A semantic miss reports no query match rather than an empty tracker", () => {
+  const text = "find a deployment";
+  const [item] = firstItems(text, tasks, { inputMode: "lookup", lookupTaskIds: [] });
+  assert.equal(item.title, `No tasks match “${text}”`);
+  assert.equal(item.valid, false);
+  assert.equal(item.arg, undefined);
 });
