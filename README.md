@@ -74,13 +74,27 @@ Staged results use Alfred's private workflow cache. Cached notes and suggestions
 
 ## Journal (`ll`)
 
-`ll <text>` saves a timestamped plain block in today's journal in the detected `~/logseq` graph. Set `LOGSEQ_GRAPH` to another graph directory if needed. The original one-line text follows the local `HH:mm` timestamp. Explicit `#tag` tokens remain native Logseq tags; no other tags are inferred.
+`ll <text>` saves a timestamped plain block in today's journal in `~/logseq`. Set **Logseq graph** (`LOGSEQ_GRAPH`) to another file graph if needed. Plain capture requires default journal filenames. The original one-line text and explicit `#tag` tokens remain unchanged.
 
-`ll TODO ask a teammate` also creates a Taskwarrior item through `ttt` preview/apply, with the original note as an append-only comment. For other notes, `ttt` semantic search and Jev check whether the note confidently completes an open Taskwarrior task. Alfred shows its title before Return; if Jev cannot verify it, the entry is journal-only. Explicit `#tag` tokens also become Taskwarrior labels on created or completed items; the raw journal text stays unchanged. `ll` requires a Taskwarrior `ttt` profile. It sends the note and task context to Jev; it does not use the optional `ttt` semantic checkbox.
+`ll TODO ask a teammate` now creates one native Logseq TODO through `ttt` preview/apply. The original note is a native child comment; ttt quotes its leading TODO so the comment cannot become a duplicate task. No Taskwarrior item or extra plain TODO is created. For other notes, semantic search and Jev verify an open Logseq task before offering DONE. Approval rechecks the task, profile, graph, and completion judgment. Native completion happens before the report is saved as a plain journal entry. Hashtags remain in native text; this path does not request unsupported tracker labels.
 
-Set **Jev API key** in Alfred Workflow Configuration, or provide `TYPESAFE_API_KEY` in Alfred’s environment. The same key supports `ttt` staged matching. Alfred saves configuration values in `prefs.plist`, not Keychain; treat that file as sensitive and do not share or sync it without protecting it. A key in an interactive shell alone does not reach Alfred. If Jev or `ttt` is unavailable, `ll` does not propose an unverified completion.
+### Native Logseq setup
 
-**Logseq task creation and DONE updates are placeholders until [tickettrain #90](https://github.com/alexkarpandrus/tickettrain/issues/90) is implemented.** Journal entries remain plain blocks, even when their text starts with `TODO`. Taskwarrior mutations happen after writing the journal entry; if they fail, inspect the task before retrying to avoid a duplicate journal entry.
+1. Use **ttt v0.13.0 or newer**. Preserve local checkout changes before updating. Set **ttt command** to the release's executable if installing beside an existing checkout.
+2. Enable Logseq's local HTTP API and keep the selected file graph open.
+3. Configure a separate `logseq` tracker profile with `ttt setup --profile <name>`. Keep its API token in ttt's credential setup, not in this repository.
+4. Set **Logseq task profile** (`LOGSEQ_PROFILE`) to that profile and **Logseq graph** to the exact API graph path. **ttt profile** remains your Taskwarrior profile. Without a Logseq task profile, ordinary notes remain journal-only; TODO creation fails with a setup message. DB graphs are not part of this `ll` integration.
+5. Set **Jev API key** or provide `TYPESAFE_API_KEY` in Alfred's environment for verified completion. Explicit TODO creation does not send notes to Jev. The optional ttt semantic checkbox does not control ll matching. Alfred stores its settings in `prefs.plist`, not Keychain; do not share credentials or paste tokens into chat.
+
+Native writes are not atomic. A failed creation or comment can leave a task behind; inspect the reported UUID before retrying. If completion succeeds but journal writing fails, do not repeat completion. The workflow reports that partial outcome. Do not switch graphs or edit the target block while apply runs. Existing Taskwarrior tasks are not migrated or mirrored.
+
+### Disposable integration check
+
+```sh
+TTT_LOGSEQ_TEST_HOME=/path/to/clean/tickettrain-v0.13.0 node --test scripts/evaluate-logseq.mjs
+```
+
+This runs the released CLI against a temporary loopback SDK fixture and graph. It checks native TODO creation, child-comment quoting, DONE updates, approval gating, and graph-switch rejection. It sends no data to Jev and does not access the live Logseq API. `test/journal.feature` specifies the acceptance scenarios.
 
 ## Examples
 

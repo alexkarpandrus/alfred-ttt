@@ -28,3 +28,11 @@ test("the Alfred workflow offers an optional Jev key without embedding a credent
   assert.match(workflow, /<key>label<\/key><string>Jev API key<\/string>/);
   assert.match(workflow, /Jev key for ttt staged matching and ll completion matching/);
 });
+
+
+test("the Alfred workflow separates Logseq profile and graph from the ttt profile without embedding a token", () => {
+  assert.match(workflow, /<key>variable<\/key><string>LOGSEQ_PROFILE<\/string>/);
+  assert.match(workflow, /<key>variable<\/key><string>LOGSEQ_GRAPH<\/string>/);
+  assert.doesNotMatch(workflow, /<key>variable<\/key><string>LOGSEQ_TOKEN<\/string>/);
+  assert.match(workflow, /Does not change the ttt profile/);
+});

@@ -2,12 +2,16 @@ import { open, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
+export function journalGraph(configured = process.env.LOGSEQ_GRAPH) {
+  const graph = configured || join(homedir(), "logseq");
+  return resolve(graph.startsWith("~/") ? join(homedir(), graph.slice(2)) : graph);
+}
+
 export async function appendJournalNote(note, options = {}) {
   if (!note.trim() || /[\r\n]/.test(note))
     throw new Error("Journal entries must be one nonempty line.");
 
-  const configured = options.graph || process.env.LOGSEQ_GRAPH || join(homedir(), "logseq");
-  const graph = resolve(configured.startsWith("~/") ? join(homedir(), configured.slice(2)) : configured);
+  const graph = journalGraph(options.graph);
   try {
     await stat(join(graph, "logseq", "config.edn"));
     const journals = await stat(join(graph, "journals"));

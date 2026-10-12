@@ -24,9 +24,9 @@ function parseEnvelope(output) {
 }
 
 function messageFrom(envelope, stderr, fallback = "ttt failed") {
-  return (
-    envelope?.error?.message || envelope?.message || stderr?.trim() || fallback
-  );
+  const message = envelope?.error?.message || envelope?.message || stderr?.trim() || fallback;
+  const item = envelope?.error?.partialResult?.item?.displayId;
+  return item ? `${message} Item ${item} may already have changed; inspect it before retrying.` : message;
 }
 
 export async function runTtt(args, options = {}) {
@@ -64,11 +64,12 @@ export async function requireStandaloneActions(options = {}) {
   return version;
 }
 
-export async function requireTaskwarrior(options = {}) {
-  const profile = options.profile || process.env.TTT_PROFILE || "own";
+export async function requireLogseq(options = {}) {
+  const profile = options.profile || (options.env || process.env).LOGSEQ_PROFILE;
+  if (!profile) throw new Error("Set LOGSEQ_PROFILE to a ttt v0.13+ Logseq file-graph profile for ll tasks.");
   const status = await runTtt(["status", "--profile", profile], options);
-  if (status.tracker?.provider !== "taskwarrior")
-    throw new Error(`Profile ${profile} must use Taskwarrior for ll.`);
+  if (status.tracker?.provider !== "logseq")
+    throw new Error(`Profile ${profile} must use the Logseq file-graph provider for ll.`);
   return profile;
 }
 

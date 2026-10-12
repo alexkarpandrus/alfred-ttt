@@ -263,7 +263,7 @@
     <dict>
       <key>config</key>
       <dict><key>default</key><false/><key>required</key><false/><key>text</key><string>Use Jev semantic ranking</string></dict>
-      <key>description</key><string>Controls ttt keyword only. The ll keyword always sends journal notes and task context to Jev for completion matching; it never sends notes for explicit TODO creation.</string>
+      <key>description</key><string>Controls ttt keyword only. With a Logseq task profile, ll sends journal notes and task context to Jev for completion matching; explicit TODO creation stays local.</string>
       <key>label</key><string>Semantic matching</string>
       <key>type</key><string>checkbox</string>
       <key>variable</key><string>TTT_SEMANTIC</string>
@@ -283,6 +283,22 @@
       <key>label</key><string>Jev API key</string>
       <key>type</key><string>textfield</string>
       <key>variable</key><string>TYPESAFE_API_KEY</string>
+    </dict>
+    <dict>
+      <key>config</key>
+      <dict><key>default</key><string></string><key>placeholder</key><string>Your Logseq profile</string><key>required</key><false/><key>trim</key><true/></dict>
+      <key>description</key><string>Named ttt v0.13+ file-graph Logseq profile for ll tasks. Does not change the ttt profile. Configure its API token through ttt setup or a credential helper.</string>
+      <key>label</key><string>Logseq task profile</string>
+      <key>type</key><string>textfield</string>
+      <key>variable</key><string>LOGSEQ_PROFILE</string>
+    </dict>
+    <dict>
+      <key>config</key>
+      <dict><key>default</key><string></string><key>placeholder</key><string>~/logseq</string><key>required</key><false/><key>trim</key><true/></dict>
+      <key>description</key><string>File graph path for ll notes and tasks. Use the exact path reported by Logseq's API. Empty uses ~/logseq; default journal filenames are required.</string>
+      <key>label</key><string>Logseq graph</string>
+      <key>type</key><string>textfield</string>
+      <key>variable</key><string>LOGSEQ_GRAPH</string>
     </dict>
   </array>
   <key>variablesdontexport</key>

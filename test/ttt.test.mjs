@@ -9,7 +9,7 @@ import {
   previewAndApply,
   checkProject,
   requireStandaloneActions,
-  requireTaskwarrior,
+  requireLogseq,
   search,
 } from "../src/ttt.mjs";
 
@@ -33,6 +33,10 @@ else if (args[0] === "search") data = { candidates: [{ displayId: "abc123", titl
 else if (args[0] === "check-project") data = { relation: "different", confidence: 0.85 };
 else if (args[0] === "preview") data = { proposalId: "lp2_test" };
 else if (args[0] === "apply") data = { item: { displayId: "abc123" } };
+if (args[0] === "apply" && process.env.TTT_FAKE_PARTIAL === "1") {
+  console.log(JSON.stringify({ok:false,error:{message:"comment failed",partialResult:{item:{displayId:"abc123"}}}}));
+  process.exit(1);
+}
 process.stdout.write(JSON.stringify({ schemaVersion: 2, ok: true, data }));
 `,
   );
@@ -91,13 +95,26 @@ test("ttt wrapper asks for a read-only project comparison", async () => {
   }
 });
 
-test("ttt wrapper refuses a non-Taskwarrior profile for journal tasks", async () => {
+test("ttt wrapper requires an explicit Logseq profile and refuses Taskwarrior for ll", async () => {
   const fake = await fakeTtt();
   try {
-    assert.equal(await requireTaskwarrior({ binary: fake.binary, env: fake.env }), "own");
-    await assert.rejects(requireTaskwarrior({ binary: fake.binary,
-      env: { ...fake.env, TTT_FAKE_TRACKER: "github-issues" } }), /must use Taskwarrior/);
+    const options = { binary: fake.binary, profile: "journal", env: { ...fake.env, TTT_FAKE_TRACKER: "logseq" } };
+    assert.equal(await requireLogseq(options), "journal");
+    await assert.rejects(requireLogseq({ ...options, profile: "", env: { ...options.env, LOGSEQ_PROFILE: "" } }), /Set LOGSEQ_PROFILE/);
+    await assert.rejects(requireLogseq({ ...options, env: { ...options.env, TTT_FAKE_TRACKER: "taskwarrior" } }), /Logseq file-graph/);
+    const calls = (await readFile(fake.log, "utf8")).trim().split("\n").map(JSON.parse);
+    assert.deepEqual(calls[0].args, ["status", "--profile", "journal"]);
   } finally {
     await rm(fake.directory, { recursive: true, force: true });
   }
+});
+
+
+test("ttt retains the item identity when an apply fails after creation", async () => {
+  const fake = await fakeTtt();
+  try {
+    await assert.rejects(previewAndApply({ action: "create_item", title: "Ask Jade" }, {
+      binary: fake.binary, profile: "journal", env: { ...fake.env, TTT_FAKE_PARTIAL: "1" },
+    }), /comment failed.*Item abc123 may already have changed.*inspect it before retrying/);
+  } finally { await rm(fake.directory, { recursive: true, force: true }); }
 });
