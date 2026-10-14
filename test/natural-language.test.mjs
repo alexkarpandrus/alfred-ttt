@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { buildItems, decodeRequest, matchingTitles, parseCommand } from "../src/plan.mjs";
-import { buildInferenceContext, confirmCompletionWithJev, parseIntent, reportsPastWork } from "../src/rephrase.mjs";
+import { buildInferenceContext, confirmCompletionWithJev, isCaptureRequest, parseIntent, reportsPastWork } from "../src/rephrase.mjs";
 
 const completionCases = [
   ["I sent the report to Alice", "Send report to Alice", true],
@@ -444,6 +444,30 @@ test("add requests create the requested work instead of adopting an existing tas
     assert.deepEqual(decodeRequest(first.arg), {
       action: "create_item", title: note, comment: note,
     }, inputMode);
+  }
+});
+
+test("get-into requests preserve the full planned work when the model guesses lookup", () => {
+  const note = "get the handover ownership list into P-TT-442, and move TT-969 into P-TT-439";
+  const target = { displayId: "TT-969", title: "Existing handover task", state: "open" };
+  for (const text of [note, `please ${note}`]) {
+    assert.equal(isCaptureRequest(text), true);
+    const intent = parseIntent(JSON.stringify({ inputMode: "lookup", lookupTaskIds: [target.displayId],
+      title: "Get the handover ownership list into P-TT-442" }), text,
+    { tasks: [{ id: target.displayId, title: target.title, state: target.state }] });
+    assert.equal(intent.inputMode, "capture");
+    assert.deepEqual(matchingTitles([{ ...target, title: text }], text), []);
+    assert.deepEqual(decodeRequest(buildItems(text, { items: [target], intent })[0].arg), {
+      action: "create_item", title: text, comment: text,
+    });
+  }
+  for (const text of ["get TT-969", "get the handover ownership list", `${note}?`,
+    "get me the handover ownership list into P-TT-442", "please get us the handover ownership list into P-TT-442"]) {
+    assert.equal(isCaptureRequest(text), false, text);
+    const intent = parseIntent(JSON.stringify({ inputMode: "lookup", lookupTaskIds: [target.displayId] }), text,
+      { tasks: [{ id: target.displayId, title: target.title, state: target.state }] });
+    assert.equal(intent.inputMode, "lookup", text);
+    assert.equal(buildItems(text, { items: [target], intent })[0].arg, undefined, text);
   }
 });
 

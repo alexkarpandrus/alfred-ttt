@@ -45,7 +45,9 @@ export function reportsDoneWork(input) {
 }
 
 export function isCaptureRequest(input) {
-  return /^\s*(?:please\s+)?(?:(?:respond|reply)\s+to|answer|create|add|tell(?!\s+(?:me|us)\b))\s+\S/i.test(input) && !/\?\s*$/.test(input);
+  return !/\?\s*$/.test(input) &&
+    (/^\s*(?:please\s+)?(?:(?:respond|reply)\s+to|answer|create|add|tell(?!\s+(?:me|us)\b))\s+\S/i.test(input) ||
+      /^\s*(?:please\s+)?get(?!\s+(?:me|us)\b)\s+\S.*\binto\s+\S/i.test(input));
 }
 const TASK_STOPWORDS = new Set(["a", "an", "the", "to", "in", "on", "for", "of", "with", "from", "about", "by", "at", "and"]);
 const PROGRESS_STOPWORDS = new Set([...TASK_STOPWORDS, "i", "we", "m", "re", "am", "are", "have", "had", "just", "already", "started", "began", "working", "work", "project", "feature", "task"]);

@@ -165,6 +165,25 @@ test("Create appears before Apple finishes and stays Create after Jev and Apple 
   assert.equal(await cachedRefinement(note, { ...env, ...first.variables, TTT_PROFILE: "other" }), undefined);
 });
 
+test("get-into work keeps Create and all ticket references through staged model disagreement", async (t) => {
+  const text = "get the handover ownership list into P-TT-442, and move TT-969 into P-TT-439";
+  const { env, filter } = await fixture(t);
+  const first = await filter(text);
+  await until(async () => (await resultFor(env, first))?.pending);
+  const pending = await filter(text, first.variables);
+  await writeFile(env.TEST_RELEASE, "ready");
+  await until(async () => (await resultFor(env, first))?.pending === false);
+  const final = await filter(text, first.variables);
+  assert.deepEqual(decodeRequest(first.items[0].arg), { action: "create_item", title: text, comment: text });
+  for (const frame of [pending, final]) {
+    assert.equal(frame.items[0].arg, first.items[0].arg);
+    assert.equal(frame.items[0].uid, first.items[0].uid);
+  }
+  assert.equal(final.rerun, undefined);
+  const commands = (await readFile(env.TEST_COMMANDS, "utf8")).trim().split("\n").map(JSON.parse);
+  assert.ok(commands.every(args => ["version", "search"].includes(args[0])), "Suggestions must not create or move tickets");
+});
+
 test("Changing the query cancels obsolete refinement and never reuses its result", async (t) => {
   const { env, filter } = await fixture(t);
   const first = await filter(note);

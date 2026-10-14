@@ -60,3 +60,11 @@ Feature: Staged task suggestions
     When background refinement finishes
     Then Alfred shows an unavailable result without an actionable mutation
     And Alfred stops polling
+  @acceptance
+  Scenario: A get-into work request creates a task instead of browsing referenced tickets
+    Given the note "get the handover ownership list into P-TT-442, and move TT-969 into P-TT-439"
+    When Jev and Apple both classify it as a lookup
+    Then Create as written appears first and remains unchanged after refinement
+    And all three ticket references and both clauses remain in the title and comment
+    And no ticket is created or moved without approval
+    And ordinary get lookups and questions remain read-only
